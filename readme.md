@@ -7,6 +7,9 @@ to Windows users. This project will be used to assist with itself and other
 projects created by the author here - so the resulting application should
 be actually useful.
 
+Click [here](https://wiki.perl-guilds.net/index.php?title=Developing_and_Distributing_wxPerl_Applications_on_Windows) to read more about the assumed Windows/Strawberry Perl/wxPerl environment.
+
 <img width="1007" height="600" alt="image" src="https://github.com/user-attachments/assets/cc5b8e65-f1c2-4cdd-a5d5-af31c66a8f47" />
 
 <img width="1010" height="602" alt="image" src="https://github.com/user-attachments/assets/729e3814-b125-46e5-bf32-e9c4517fe43b" />
+
