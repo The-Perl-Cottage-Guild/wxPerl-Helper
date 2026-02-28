@@ -246,6 +246,8 @@ sub select_perl_script {
 
 sub run_pp_autolink {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_pp_autolink <event_handler>
+    # end wxGlade
 
     my $script = $self->{perl_script_path}->GetValue // '';
     $script =~ s/^\s+|\s+$//g;
