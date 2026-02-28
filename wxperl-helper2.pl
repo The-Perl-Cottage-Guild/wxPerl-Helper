@@ -49,15 +49,14 @@ sub new {
     $self->{frame_menubar} = Wx::MenuBar->new();
     my $wxglade_tmp_menu;
     $wxglade_tmp_menu = Wx::Menu->new();
-    $self->{menu_open_pl} = $wxglade_tmp_menu->Append(wxID_ANY, "Open (.pl) ...", "");
+    $wxglade_tmp_menu->Append(wxID_ANY, "Open (.pl) ...", "");
     $self->{Exit} = $wxglade_tmp_menu->Append(wxID_ANY, "Exit", "");
     $self->{frame_menubar}->Append($wxglade_tmp_menu, "File");
-
     $wxglade_tmp_menu = Wx::Menu->new();
     $self->{Aboutt} = $wxglade_tmp_menu->Append(wxID_ANY, "About", "");
     $self->{frame_menubar}->Append($wxglade_tmp_menu, "Help");
-
     $self->SetMenuBar($self->{frame_menubar});
+    
     # Menu Bar end
 
     

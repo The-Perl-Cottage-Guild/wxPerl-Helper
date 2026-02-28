@@ -43,7 +43,10 @@ sub new {
     $self->SetSize(Wx::Size->new(1008, 596));
     $self->SetTitle("wxPerl GUI Helper for Windows By Perl-Guilds.net");
 
+
+
     # Menu Bar
+
     $self->{frame_menubar} = Wx::MenuBar->new();
     my $wxglade_tmp_menu;
     $wxglade_tmp_menu = Wx::Menu->new();
