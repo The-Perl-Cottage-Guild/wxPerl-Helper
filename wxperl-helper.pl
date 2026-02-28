@@ -103,14 +103,7 @@ sub new {
     $self->{button_6} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Exit");
     $self->{sizer_3}->Add($self->{button_6}, 0, wxEXPAND, 0);
 
-    $self->{txt_cmd_io} = Wx::TextCtrl->new(
-        $self->{notebook_1_pane_1},
-        wxID_ANY,
-        "",
-        wxDefaultPosition,
-        wxDefaultSize,
-        wxHSCROLL|wxTE_MULTILINE|wxTE_RICH2
-    );
+    $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 496));
     $self->{sizer_2}->Add($self->{txt_cmd_io}, 1, wxEXPAND, 0);
 
