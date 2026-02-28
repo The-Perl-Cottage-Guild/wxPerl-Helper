@@ -11,6 +11,7 @@ use warnings;
 use Wx;
 use threads;
 use Thread::Queue;
+use File::Spec;
 use Cwd;
 
 # begin wxGlade: dependencies
@@ -190,6 +191,18 @@ sub _drain_worker_queue {
     }
 }
 
+sub _get_perl_root {
+    my $perl_path = $^X;  # full path to running perl.exe
+    my ($volume, $dirs, $file) = File::Spec->splitpath($perl_path);
+    my @parts = File::Spec->splitdir($dirs);
+    
+    # Remove \perl\bin\
+    pop @parts; # bin
+    pop @parts; # perl
+    
+    my $perl_root = File::Spec->catdir($volume, @parts);
+    return $perl_root;
+}
 
 sub DoQuit {
     my ($self, $event) = @_;
@@ -236,8 +249,11 @@ sub run_pp_autolink {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::run_pp_autolink <event_handler>
     # end wxGlade
+
     my $script = $self->{perl_script_path}->GetValue // '';
     $script =~ s/^\s+|\s+$//g;
+    my $exe = $script;
+    $exe =~ s/\.pl/\.exe/g;
 
     $self->_append_io("\n[debug] Find DLLs clicked\n");
 
@@ -287,10 +303,43 @@ sub run_pp_autolink {
             $qref->enqueue("[worker] pipe opened, reading output...\n");
 
             my $line_count = 0;
+            my $CMD_line = "";
             while (my $line = <$fh>) {
                 $line_count++;
                 $qref->enqueue($line);
+                if ($line =~ m/^CMD:/) {
+                  $CMD_line = $line;
+                }
             }
+
+my $perl_path = $^X;  # full path to running perl.exe
+
+my ($volume, $dirs, $file) = File::Spec->splitpath($perl_path);
+my @parts = File::Spec->splitdir($dirs);
+
+# Remove \perl\bin\
+pop @parts;   # bin
+pop @parts;   # perl
+pop @parts;
+push @parts, "c";
+my $filter = join("/", @parts);
+my $perl_root = lc File::Spec->catdir($volume, @parts);
+my @cmd = split / /, $CMD_line;
+my @filtered_libs = grep { m/\Q$filter\E/ } @cmd;
+
+$qref->enqueue("\n\nPerl Module Specific Libraries To Include:\n\n");
+my $wxpar = "wxpar -o $exe";
+foreach my $lib (@filtered_libs) {
+  $wxpar .= " --link $lib";
+  $qref->enqueue(" --link $lib \n");
+}
+$wxpar .= " $script";
+
+$qref->enqueue("\npp_autolink process completed ... generating 'wxpar' command for Makefile:\n\n");
+
+$wxpar =~ s/\\/\//g;
+
+$qref->enqueue("$wxpar\n");
 
             close($fh);
             $exit = $? >> 8;
@@ -306,7 +355,6 @@ sub run_pp_autolink {
 
     $self->_append_io("[debug] worker thread launched\n");
 }
-
 
 # end of class MyFrame
 
