@@ -215,17 +215,23 @@ sub _drain_worker_queue {
 
 sub DoQuit {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::DoQuit <event_handler>
+    # end wxGlade
     $self->Close(1);
 }
 
 sub show_license_dialog {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::show_license_dialog <event_handler>
+    # end wxGlade
     my $msg = "wxPerl GUI Helper for Windows\n\n(c) Perl-Guilds.net\n";
     Wx::MessageBox($msg, "About", wxOK|wxICON_INFORMATION, $self);
 }
 
 sub select_perl_script {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_perl_script <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -322,6 +328,8 @@ sub run_pp_autolink {
 
 sub verify_env {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::verify_env <event_handler>
+    # end wxGlade
 
     $self->_append_io("\n=== Verify Env ===\n");
 
