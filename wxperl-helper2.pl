@@ -157,8 +157,37 @@ sub new {
     Wx::Event::EVT_BUTTON($self, $self->{button_6}->GetId, $self->can('DoQuit'));
 
     # end wxGlade
+
+    # ----- background worker comms -----
+    $self->{_q}     = Thread::Queue->new();
+    $self->{_timer} = Wx::Timer->new($self, wxID_ANY);
+    Wx::Event::EVT_TIMER($self, $self->{_timer}, sub { $self->_drain_worker_queue });
+    $self->{_timer}->Start(100); # 100ms poll
+    # -----------------------------------
     return $self;
 
+}
+
+sub _append_io {
+    my ($self, $text) = @_;
+    return unless defined $text && length $text;
+
+    $self->{txt_cmd_io}->AppendText($text);
+    $self->{txt_cmd_io}->ShowPosition($self->{txt_cmd_io}->GetLastPosition);
+}
+
+sub _drain_worker_queue {
+    my ($self) = @_;
+    my $q = $self->{_q} or return;
+
+    while (defined(my $msg = $q->dequeue_nb)) {
+        if (ref($msg) eq 'HASH' && ($msg->{type} // '') eq 'DONE') {
+            $self->_append_io("\n[done] exit_code=$msg->{exit_code}\n");
+            $self->{button_3}->Enable(1);
+            next;
+        }
+        $self->_append_io($msg);
+    }
 }
 
 
@@ -183,18 +212,99 @@ sub show_license_dialog {
 sub select_perl_script {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::select_perl_script <event_handler>
-    warn "Event handler (select_perl_script) not implemented";
     $event->Skip;
     # end wxGlade
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Select Perl Script",
+        "", "",
+        "Perl files (*.pl)|*.pl|All files (*.*)|*.*",
+        Wx::wxFD_OPEN() | Wx::wxFD_FILE_MUST_EXIST()
+    );
+
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        my $path = $dlg->GetPath;  # full path
+        $self->{perl_script_path}->SetValue($path);
+        $self->_append_io("Selected: $path\n");
+    }
+
+    $dlg->Destroy;
 }
 
 
 sub run_pp_autolink {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::run_pp_autolink <event_handler>
-    warn "Event handler (run_pp_autolink) not implemented";
-    $event->Skip;
     # end wxGlade
+    my $script = $self->{perl_script_path}->GetValue // '';
+    $script =~ s/^\s+|\s+$//g;
+
+    $self->_append_io("\n[debug] Find DLLs clicked\n");
+
+    if (!$script) {
+        $self->_append_io("[error] No .pl selected.\n");
+        return;
+    }
+    if (!-f $script) {
+        $self->_append_io("[error] File not found: $script\n");
+        return;
+    }
+
+    $script = Cwd::abs_path($script) || $script;
+    $self->_append_io("[debug] script resolved to: $script\n");
+
+    $self->{button_3}->Enable(0);
+    $self->_append_io("=== Starting pp autolink scan ===\n");
+
+    my $q = $self->{_q};
+
+    threads->create(sub {
+        my ($script_path, $qref) = @_;
+
+        $qref->enqueue("[worker] thread started\n");
+
+        # Check pp is runnable
+        my $pp_ver = `pp --version 2>&1`;
+        my $pp_rc  = $? >> 8;
+        $qref->enqueue("[worker] pp --version rc=$pp_rc\n$pp_ver\n");
+
+        if ($pp_rc != 0) {
+            $qref->enqueue("[worker][error] 'pp_autolink' command failed. Is PAR::Packer installed and on PATH?\n");
+            $qref->enqueue({ type => 'DONE', exit_code => $pp_rc });
+            return;
+        }
+
+        my @cmd = qw/pp_autolink -o tmp.exe/;
+        push @cmd, $script_path;
+
+        my $pretty = join(' ', map { $_ =~ /\s/ ? qq{"$_"} : $_ } @cmd);
+        $qref->enqueue("[worker] cmd: $pretty\n");
+
+        my $cmdline = $pretty . " 2>&1";
+
+        my $exit = 0;
+        if (open(my $fh, "$cmdline |")) {
+            $qref->enqueue("[worker] pipe opened, reading output...\n");
+
+            my $line_count = 0;
+            while (my $line = <$fh>) {
+                $line_count++;
+                $qref->enqueue($line);
+            }
+
+            close($fh);
+            $exit = $? >> 8;
+            $qref->enqueue("[worker] pipe closed, lines=$line_count, rc=$exit\n");
+        } else {
+            $qref->enqueue("[worker][error] failed to run command pipe: $!\n");
+            $exit = 127;
+        }
+
+        $qref->enqueue({ type => 'DONE', exit_code => $exit });
+        return;
+    }, $script, $q)->detach();
+
+    $self->_append_io("[debug] worker thread launched\n");
 }
 
 
