@@ -40,7 +40,7 @@ sub new {
         unless defined $style;
 
     $self = $self->SUPER::new( $parent, $id, $title, $pos, $size, $style, $name );
-    $self->SetSize(Wx::Size->new(800, 596));
+    $self->SetSize(Wx::Size->new(800, 1100));
     $self->SetTitle("wxPerl GUI Helper for Windows By Perl-Guilds.net");
     
     
@@ -108,7 +108,7 @@ sub new {
     $self->{sizer_3}->Add(73, 200, 0, 0, 0);
     
     $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
-    $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 496));
+    $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 1100));
     $self->{sizer_2}->Add($self->{txt_cmd_io}, 1, wxALL|wxEXPAND, 3);
     
     $self->{notebook_1_MakefileBuilder} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
@@ -119,7 +119,7 @@ sub new {
     $self->{sizer_mk_project} = Wx::StaticBoxSizer->new(Wx::StaticBox->new($self->{notebook_1_MakefileBuilder}, wxID_ANY, "Project"), wxVERTICAL);
     $self->{sizer_mk_root}->Add($self->{sizer_mk_project}, 0, wxALL|wxEXPAND, 10);
     
-    $self->{sizer_mk_project_grid} = Wx::FlexGridSizer->new(4, 2, 6, 10);
+    $self->{sizer_mk_project_grid} = Wx::FlexGridSizer->new(3, 2, 6, 10);
     $self->{sizer_mk_project}->Add($self->{sizer_mk_project_grid}, 0, wxALL|wxEXPAND, 6);
     
     my $label_mk_appname = Wx::StaticText->new($self->{sizer_mk_project}->GetStaticBox(), wxID_ANY, "App name");
@@ -127,12 +127,6 @@ sub new {
     
     $self->{txt_mk_appname} = Wx::TextCtrl->new($self->{sizer_mk_project}->GetStaticBox(), wxID_ANY, "");
     $self->{sizer_mk_project_grid}->Add($self->{txt_mk_appname}, 1, wxEXPAND, 0);
-    
-    my $label_mk_srcpl = Wx::StaticText->new($self->{sizer_mk_project}->GetStaticBox(), wxID_ANY, "Source .pl (full path)");
-    $self->{sizer_mk_project_grid}->Add($label_mk_srcpl, 0, wxALIGN_CENTER_VERTICAL, 0);
-    
-    $self->{txt_mk_srcpl} = Wx::TextCtrl->new($self->{sizer_mk_project}->GetStaticBox(), wxID_ANY, "");
-    $self->{sizer_mk_project_grid}->Add($self->{txt_mk_srcpl}, 1, wxEXPAND, 0);
     
     my $label_mk_distdir = Wx::StaticText->new($self->{sizer_mk_project}->GetStaticBox(), wxID_ANY, "dist/ output dir");
     $self->{sizer_mk_project_grid}->Add($label_mk_distdir, 0, wxALIGN_CENTER_VERTICAL, 0);
@@ -156,14 +150,13 @@ sub new {
     $self->{chk_mk_gui}->SetValue(1);
     $self->{sizer_mk_wxpar_row1}->Add($self->{chk_mk_gui}, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 0);
     
-    $self->{chk_mk_build_debug} = Wx::CheckBox->new($self->{sizer_mk_wxpar}->GetStaticBox(), wxID_ANY, "Build DEBUG target too");
-    $self->{chk_mk_build_debug}->SetValue(1);
+    $self->{chk_mk_build_debug} = Wx::CheckBox->new($self->{sizer_mk_wxpar}->GetStaticBox(), wxID_ANY, "Add DEBUG target");
     $self->{sizer_mk_wxpar_row1}->Add($self->{chk_mk_build_debug}, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 10);
     
     $self->{sizer_mk_wxpar_row1_fill} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{sizer_mk_wxpar_row1}->Add($self->{sizer_mk_wxpar_row1_fill}, 1, wxEXPAND, 0);
     
-    $self->{sizer_mk_wxpar_row1_fill}->Add(0, 0, 0, 0, 0);
+    $self->{sizer_mk_wxpar_row1_fill}->Add(243, 20, 0, 0, 0);
     
     my $label_mk_extra = Wx::StaticText->new($self->{sizer_mk_wxpar}->GetStaticBox(), wxID_ANY, "Extra flags");
     $self->{sizer_mk_wxpar_row1}->Add($label_mk_extra, 0, wxALIGN_CENTER_VERTICAL, 0);
@@ -189,17 +182,25 @@ sub new {
     my $label_mk_dll_hint = Wx::StaticText->new($self->{sizer_mk_dlls}->GetStaticBox(), wxID_ANY, "One DLL per line. (Hint: get list from DLL Finder tab.)");
     $self->{sizer_mk_dlls}->Add($label_mk_dll_hint, 0, wxALL|wxEXPAND, 6);
     
-    $self->{sizer_mk_inno} = Wx::StaticBoxSizer->new(Wx::StaticBox->new($self->{notebook_1_MakefileBuilder}, wxID_ANY, "Installer (setup target)"), wxVERTICAL);
-    $self->{sizer_mk_root}->Add($self->{sizer_mk_inno}, 0, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10);
+    $self->{sizer_mk_inno_copy} = Wx::StaticBoxSizer->new(Wx::StaticBox->new($self->{notebook_1_MakefileBuilder}, wxID_ANY, ""), wxVERTICAL);
+    $self->{sizer_mk_root}->Add($self->{sizer_mk_inno_copy}, 0, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10);
     
-    $self->{sizer_mk_inno_grid} = Wx::FlexGridSizer->new(1, 2, 0, 10);
-    $self->{sizer_mk_inno}->Add($self->{sizer_mk_inno_grid}, 0, wxALL|wxEXPAND, 6);
+    $self->{sizer_6} = Wx::BoxSizer->new(wxHORIZONTAL);
+    $self->{sizer_mk_inno_copy}->Add($self->{sizer_6}, 1, wxEXPAND, 0);
     
-    my $label_mk_iscc = Wx::StaticText->new($self->{sizer_mk_inno}->GetStaticBox(), wxID_ANY, "ISCC.exe (full path)");
-    $self->{sizer_mk_inno_grid}->Add($label_mk_iscc, 0, wxALIGN_CENTER_VERTICAL, 0);
+    $self->{sizer_6}->Add(138, 20, 0, 0, 0);
     
-    $self->{txt_mk_iscc} = Wx::TextCtrl->new($self->{sizer_mk_inno}->GetStaticBox(), wxID_ANY, "C:\\Users\\user\\AppData\\Local\\Programs\\Inno Setup 6\\ISCC.exe");
-    $self->{sizer_mk_inno_grid}->Add($self->{txt_mk_iscc}, 1, wxEXPAND, 0);
+    $self->{sizer_6}->Add(119, 20, 0, 0, 0);
+    
+    $self->{button_4} = Wx::Button->new($self->{sizer_mk_inno_copy}->GetStaticBox(), wxID_ANY, "Save Makefile");
+    $self->{sizer_6}->Add($self->{button_4}, 0, 0, 0);
+    
+    $self->{button_5} = Wx::Button->new($self->{sizer_mk_inno_copy}->GetStaticBox(), wxID_ANY, "Preview Makefile");
+    $self->{sizer_6}->Add($self->{button_5}, 0, 0, 0);
+    
+    $self->{sizer_6}->Add(150, 20, 0, 0, 0);
+    
+    $self->{sizer_6}->Add(150, 20, 0, 0, 0);
     
     $self->{sizer_mk_preview} = Wx::StaticBoxSizer->new(Wx::StaticBox->new($self->{notebook_1_MakefileBuilder}, wxID_ANY, "Makefile preview"), wxVERTICAL);
     $self->{sizer_mk_root}->Add($self->{sizer_mk_preview}, 1, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10);
@@ -244,8 +245,6 @@ sub new {
     $self->{notebook_1}->AddPage($self->{notebook_1_pane_3}, "Help");
     
     $self->{notebook_1_pane_2}->SetSizer($self->{sizer_inno_main});
-    
-    $self->{sizer_mk_inno_grid}->AddGrowableCol(1);
     
     $self->{sizer_mk_dlls_grid}->AddGrowableCol(1);
     
@@ -436,8 +435,8 @@ sub run_pp_autolink {
             $qref->enqueue("\n\n=== Perl moduled DLLs to include ===n\n");
             my $wxpar = "wxpar -o $exe";
             foreach my $lib (@filtered_libs) {
-              $wxpar .= " --link $lib";
-              $qref->enqueue(" --link $lib \n");
+              $wxpar .= "$lib";
+              $qref->enqueue("$lib\n");
             }
             $wxpar .= " $script --gui";
             
