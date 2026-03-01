@@ -40,7 +40,7 @@ sub new {
         unless defined $style;
 
     $self = $self->SUPER::new( $parent, $id, $title, $pos, $size, $style, $name );
-    $self->SetSize(Wx::Size->new(1008, 596));
+    $self->SetSize(Wx::Size->new(800, 596));
     $self->SetTitle("wxPerl GUI Helper for Windows By Perl-Guilds.net");
     
     
@@ -50,7 +50,7 @@ sub new {
     $self->{frame_menubar} = Wx::MenuBar->new();
     my $wxglade_tmp_menu;
     $wxglade_tmp_menu = Wx::Menu->new();
-    $wxglade_tmp_menu->Append(wxID_ANY, "Open (.pl) ...", "");
+    $self->{Open} = $wxglade_tmp_menu->Append(wxID_ANY, "Open (.pl) ...", "");
     $self->{Exit} = $wxglade_tmp_menu->Append(wxID_ANY, "Exit", "");
     $self->{frame_menubar}->Append($wxglade_tmp_menu, "File");
     $wxglade_tmp_menu = Wx::Menu->new();
@@ -69,47 +69,53 @@ sub new {
     $self->{sizer_1}->Add($self->{notebook_1}, 1, wxEXPAND, 0);
     
     $self->{notebook_1_pane_1} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
-    $self->{notebook_1}->AddPage($self->{notebook_1_pane_1}, "EXE Builder");
+    $self->{notebook_1}->AddPage($self->{notebook_1_pane_1}, "DLL Finder");
     
     $self->{sizer_2} = Wx::FlexGridSizer->new(2, 2, 0, 0);
     
-    $self->{sizer_2}->Add(0, 0, 0, 0, 0);
+    my $label_1 = Wx::StaticText->new($self->{notebook_1_pane_1}, wxID_ANY, "Source (.pl)");
+    $self->{sizer_2}->Add($label_1, 0, wxALIGN_CENTER, 0);
     
     $self->{sizer_4} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{sizer_2}->Add($self->{sizer_4}, 1, wxEXPAND, 0);
     
-    my $lbl_pl = Wx::StaticText->new($self->{notebook_1_pane_1}, wxID_ANY, "Source (.pl)");
-    $self->{sizer_4}->Add($lbl_pl, 0, 0, 0);
-    
     $self->{perl_script_path} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "");
-    $self->{perl_script_path}->SetMinSize(Wx::Size->new(740, 23));
+    $self->{perl_script_path}->SetMinSize(Wx::Size->new(444, 23));
     $self->{sizer_4}->Add($self->{perl_script_path}, 1, wxEXPAND|wxLEFT|wxRIGHT, 6);
-    
-    $self->{sizer_4}->Add(0, 0, 0, 0, 0);
     
     $self->{button_browse_pl} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Browse\N{U+2026}");
     $self->{sizer_4}->Add($self->{button_browse_pl}, 0, wxEXPAND, 0);
     
+    $self->{button_3} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Find DLLs");
+    $self->{button_3}->SetToolTip("Runs pp_autolink to find the DLLs needed");
+    $self->{sizer_4}->Add($self->{button_3}, 0, wxEXPAND, 0);
+    
     $self->{sizer_3} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{sizer_2}->Add($self->{sizer_3}, 1, wxEXPAND, 0);
     
-    $self->{button_3} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Find DLLs");
-    $self->{button_3}->SetToolTip("Runs pp_autolink to find the DLLs needed");
-    $self->{sizer_3}->Add($self->{button_3}, 0, wxEXPAND, 0);
+    $self->{sizer_3}->Add(0, 0, 0, 0, 0);
     
-    $self->{button_6} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Exit");
-    $self->{sizer_3}->Add($self->{button_6}, 0, wxEXPAND, 0);
+    $self->{sizer_3}->Add(73, 200, 0, 0, 0);
+    
+    $self->{sizer_3}->Add(0, 0, 0, 0, 0);
+    
+    $self->{sizer_3}->Add(73, 200, 0, 0, 0);
     
     $self->{sizer_3}->Add(0, 0, 0, 0, 0);
     
     $self->{sizer_3}->Add(0, 0, 0, 0, 0);
+    
+    $self->{sizer_3}->Add(73, 200, 0, 0, 0);
     
     $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 496));
     $self->{sizer_2}->Add($self->{txt_cmd_io}, 1, wxALL|wxEXPAND, 3);
     
+    $self->{notebook_1_MakefileBuilder} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
+    $self->{notebook_1}->AddPage($self->{notebook_1_MakefileBuilder}, "Makefile Builder");
+    
     $self->{notebook_1_pane_2} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
-    $self->{notebook_1}->AddPage($self->{notebook_1_pane_2}, "Installer Creator");
+    $self->{notebook_1}->AddPage($self->{notebook_1_pane_2}, "Installer Configurator");
     
     $self->{sizer_inno_main} = Wx::BoxSizer->new(wxVERTICAL);
     
@@ -151,11 +157,11 @@ sub new {
     $self->{panel_1}->SetSizer($self->{sizer_1});
     
     $self->Layout();
+    Wx::Event::EVT_MENU($self, $self->{Open}->GetId, $self->can('select_perl_script'));
     Wx::Event::EVT_MENU($self, $self->{Exit}->GetId, $self->can('DoQuit'));
     Wx::Event::EVT_MENU($self, $self->{Aboutt}->GetId, $self->can('show_license_dialog'));
     Wx::Event::EVT_BUTTON($self, $self->{button_browse_pl}->GetId, $self->can('select_perl_script'));
     Wx::Event::EVT_BUTTON($self, $self->{button_3}->GetId, $self->can('run_pp_autolink'));
-    Wx::Event::EVT_BUTTON($self, $self->{button_6}->GetId, $self->can('DoQuit'));
 
     # end wxGlade
 
@@ -207,11 +213,9 @@ sub _get_perl_root {
 sub DoQuit {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::DoQuit <event_handler>
-    warn "Event handler (DoQuit) not implemented";
-    $event->Skip;
     # end wxGlade
+    $self->Close;
 }
-
 
 sub show_license_dialog {
     my ($self, $event) = @_;
@@ -312,34 +316,36 @@ sub run_pp_autolink {
                 }
             }
 
-my $perl_path = $^X;  # full path to running perl.exe
+            my $perl_path = $^X;  # full path to running perl.exe
+            
+            my ($volume, $dirs, $file) = File::Spec->splitpath($perl_path);
+            my @parts = File::Spec->splitdir($dirs);
+            
+            # Remove \perl\bin\
+            pop @parts;   # bin
+            pop @parts;   # perl
+            pop @parts;
+            push @parts, "c";
+            my $filter = join("/", @parts);
+            my $perl_root = lc File::Spec->catdir($volume, @parts);
+            my @cmd = split / /, $CMD_line;
+            my @filtered_libs = grep { m/\Q$filter\E/ } @cmd;
+            
+            $qref->enqueue("\n\n=== Perl moduled DLLs to include ===n\n");
+            my $wxpar = "wxpar -o $exe";
+            foreach my $lib (@filtered_libs) {
+              $wxpar .= " --link $lib";
+              $qref->enqueue(" --link $lib \n");
+            }
+            $wxpar .= " $script --gui";
+            
+            $qref->enqueue("\n[worker] pp_autolink process completed...");
 
-my ($volume, $dirs, $file) = File::Spec->splitpath($perl_path);
-my @parts = File::Spec->splitdir($dirs);
-
-# Remove \perl\bin\
-pop @parts;   # bin
-pop @parts;   # perl
-pop @parts;
-push @parts, "c";
-my $filter = join("/", @parts);
-my $perl_root = lc File::Spec->catdir($volume, @parts);
-my @cmd = split / /, $CMD_line;
-my @filtered_libs = grep { m/\Q$filter\E/ } @cmd;
-
-$qref->enqueue("\n\nPerl Module Specific Libraries To Include:\n\n");
-my $wxpar = "wxpar -o $exe";
-foreach my $lib (@filtered_libs) {
-  $wxpar .= " --link $lib";
-  $qref->enqueue(" --link $lib \n");
-}
-$wxpar .= " $script";
-
-$qref->enqueue("\npp_autolink process completed ... generating 'wxpar' command for Makefile:\n\n");
-
-$wxpar =~ s/\\/\//g;
-
-$qref->enqueue("$wxpar\n");
+            $qref->enqueue("\n\n=== 'wxpar' command (may be used in a Makefile) ===n\n");
+            
+            $wxpar =~ s/\\/\//g;
+            
+            $qref->enqueue("$wxpar\n\n\n");
 
             close($fh);
             $exit = $? >> 8;
