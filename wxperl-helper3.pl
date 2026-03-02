@@ -219,8 +219,6 @@ sub run_pp_autolink {
     $exe =~ s/\.pl//g;
     $exe .= ".exe";
 
-    $self->_append_io("\n[debug] Find DLLs clicked\n");
-
     if (!$script) {
         $self->_append_io("[error] No .pl selected.\n");
         return;
@@ -231,7 +229,6 @@ sub run_pp_autolink {
     }
 
     $script = Cwd::abs_path($script) || $script;
-    $self->_append_io("[debug] script resolved to: $script\n");
 
     $self->{button_3}->Enable(0);
     $self->_append_io("\n=== Starting pp_ autolink scan ===\n\n");
@@ -246,7 +243,7 @@ sub run_pp_autolink {
         # Check pp is runnable
         my $pp_ver = `pp --version 2>&1`;
         my $pp_rc  = $? >> 8;
-        $qref->enqueue("[worker] pp --version rc=$pp_rc\n$pp_ver\n");
+        $qref->enqueue("[worker] pp --version rc=$pp_rc\n$pp_ver");
 
         if ($pp_rc != 0) {
             $qref->enqueue("[worker][error] 'pp_autolink' command failed. Is PAR::Packer installed and on PATH?\n");
@@ -262,7 +259,7 @@ sub run_pp_autolink {
 
         my $cmdline = $pretty . " 2>&1";
 
-        $qref->enqueue("\n\n=== Finding DLLs and generating Makefile ===\n\n");
+        $qref->enqueue("\n=== Finding DLLs and generating Makefile ===\n");
 
         my $exit = 0;
         if (open(my $fh, "$cmdline |")) {
@@ -293,7 +290,7 @@ sub run_pp_autolink {
             my @cmd = split / /, $CMD_line;
             my @filtered_libs = grep { m/\Q$filter\E/i } @cmd;
             
-            $qref->enqueue("\n\n=== Perl moduled DLLs to include ===\n\n");
+            $qref->enqueue("\n=== Perl moduled DLLs to include ===\n\n");
 
             my $wxpar = "wxpar -o $exe";
             foreach my $lib (@filtered_libs) {
@@ -303,12 +300,16 @@ sub run_pp_autolink {
 
             $wxpar .= " $script --gui";
 
-            $qref->enqueue("\n\n=== Makefile with 'wxpar' command ===\n\n");
+            $qref->enqueue("\n=== Makefile with 'wxpar' command ===\n\n");
             
             $wxpar =~ s/\\/\//g;
             $wxpar =~ s/$filter/\$\(CBIN\)/gi;
 
+# TODO: make paths for $exe relative ...
+
             my $makefile = <<EOF;
+# -- BEGIN MAKEFILE --
+
 CBIN    := "$perl_root"
 DIST    := dist
 RELEASE := release
@@ -326,8 +327,10 @@ exe: prepdirs
 prepdirs:
 	\@if not exist \$(DIST) mkdir \$(DIST)
 	\@if not exist \$(RELEASE) mkdir \$(RELEASE)
+# -- END MAKEFILE --
+
 EOF
-            $qref->enqueue("$makefile\n\n");
+            $qref->enqueue("$makefile");
 
             close($fh);
             $exit = $? >> 8;
@@ -340,8 +343,6 @@ EOF
         $qref->enqueue({ type => 'DONE', exit_code => $exit });
         return;
     }, $script, $q)->detach();
-
-    $self->_append_io("[debug] worker thread launched\n");
 }
 
 # end of class MyFrame
