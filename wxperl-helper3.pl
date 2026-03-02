@@ -69,7 +69,7 @@ sub new {
     $self->{sizer_1}->Add($self->{notebook_1}, 1, wxEXPAND, 0);
     
     $self->{notebook_1_pane_1} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
-    $self->{notebook_1}->AddPage($self->{notebook_1_pane_1}, "DLL Finder");
+    $self->{notebook_1}->AddPage($self->{notebook_1_pane_1}, "DLL Finder/Makefile Generator");
     
     $self->{sizer_2} = Wx::FlexGridSizer->new(2, 2, 0, 0);
     
@@ -102,7 +102,10 @@ sub new {
     $self->{sizer_2}->Add($self->{txt_cmd_io}, 1, wxALL|wxEXPAND, 3);
     
     $self->{notebook_1_pane_3} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
-    $self->{notebook_1}->AddPage($self->{notebook_1_pane_3}, "Help");
+    $self->{notebook_1}->AddPage($self->{notebook_1_pane_3}, "Inno Setup Compiler");
+    
+    $self->{notebook_1_Help} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
+    $self->{notebook_1}->AddPage($self->{notebook_1_Help}, "Help");
     
     $self->{notebook_1_pane_1}->SetSizer($self->{sizer_2});
     
@@ -259,6 +262,8 @@ sub run_pp_autolink {
 
         my $cmdline = $pretty . " 2>&1";
 
+        $qref->enqueue("\n\n=== Finding DLLs and generating Makefile ===\n\n");
+
         my $exit = 0;
         if (open(my $fh, "$cmdline |")) {
             $qref->enqueue("[worker] pipe opened, reading output...\n");
@@ -289,22 +294,24 @@ sub run_pp_autolink {
             my @filtered_libs = grep { m/\Q$filter\E/i } @cmd;
             
             $qref->enqueue("\n\n=== Perl moduled DLLs to include ===\n\n");
+
             my $wxpar = "wxpar -o $exe";
             foreach my $lib (@filtered_libs) {
               $wxpar .= " --link $lib ";
               $qref->enqueue("$lib\n");
             }
-            $wxpar .= " $script --gui";
-            
-            $qref->enqueue("\n[worker] pp_autolink process completed...");
 
-            $qref->enqueue("\n\n=== 'wxpar' command (may be used in a Makefile) ===\n\n");
+            $wxpar .= " $script --gui";
+
+            $qref->enqueue("\n\n=== Makefile with 'wxpar' command ===\n\n");
             
             $wxpar =~ s/\\/\//g;
             $wxpar =~ s/$filter/\$\(CBIN\)/gi;
 
             my $makefile = <<EOF;
-CBIN := "$perl_root"
+CBIN    := "$perl_root"
+DIST    := dist
+RELEASE := release
 
 clean:
 	\@if exist dist\* del /Q /F dist\* 2>NUL
@@ -312,8 +319,13 @@ clean:
 
 all: exe
 
-exe:
+exe: prepdirs
 	$wxpar
+	\@move /Y $exe dist\
+
+prepdirs:
+	\@if not exist \$(DIST) mkdir \$(DIST)
+	\@if not exist \$(RELEASE) mkdir \$(RELEASE)
 EOF
             $qref->enqueue("$makefile\n\n");
 
