@@ -435,7 +435,7 @@ sub run_pp_autolink {
             $qref->enqueue("\n\n=== Perl moduled DLLs to include ===n\n");
             my $wxpar = "wxpar -o $exe";
             foreach my $lib (@filtered_libs) {
-              $wxpar .= "$lib";
+              $wxpar .= " --link $lib ";
               $qref->enqueue("$lib\n");
             }
             $wxpar .= " $script --gui";
