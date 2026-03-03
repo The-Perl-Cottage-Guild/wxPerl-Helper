@@ -12,8 +12,14 @@ use Wx;
 use threads;
 use Thread::Queue;
 use File::Spec;
-use Cwd qw(abs_path getcwd);
-use File::Basename qw(dirname basename);
+use Cwd qw(abs_path);
+use File::Basename ();   # NOTE: we fully-qualify dirname/basename inside package MyFrame
+
+# begin wxGlade: dependencies
+# end wxGlade
+
+# begin wxGlade: extracode
+# end wxGlade
 
 package MyFrame;
 
@@ -30,23 +36,18 @@ sub new {
     $size   = wxDefaultSize      unless defined $size;
     $name   = ""                 unless defined $name;
 
+    # begin wxGlade: MyFrame::new
     $style = wxCAPTION|wxCLIP_CHILDREN|wxCLOSE_BOX|wxMAXIMIZE_BOX|wxMINIMIZE_BOX|wxSYSTEM_MENU
         unless defined $style;
 
     $self = $self->SUPER::new( $parent, $id, $title, $pos, $size, $style, $name );
     $self->SetSize(Wx::Size->new(800, 600));
     $self->SetTitle("wxPerl GUI Helper for Windows By Perl-Guilds.net");
-
-    # state
-    $self->{_iss_seeded_from_script} = 0;
-    $self->{_iss_pending_seed}       = 0;
-    $self->{_script_abs}             = '';
-    $self->{_proj_root}              = '';
-    $self->{_installer_dir}          = '';
-    $self->{_dist_dir}               = '';
-    $self->{_release_dir}            = '';
+    
+    
 
     # Menu Bar
+
     $self->{frame_menubar} = Wx::MenuBar->new();
     my $wxglade_tmp_menu;
     $wxglade_tmp_menu = Wx::Menu->new();
@@ -57,221 +58,211 @@ sub new {
     $self->{Aboutt} = $wxglade_tmp_menu->Append(wxID_ANY, "About", "");
     $self->{frame_menubar}->Append($wxglade_tmp_menu, "Help");
     $self->SetMenuBar($self->{frame_menubar});
+    
     # Menu Bar end
 
+    
     $self->{panel_1} = Wx::Panel->new($self, wxID_ANY);
+    
     $self->{sizer_1} = Wx::BoxSizer->new(wxVERTICAL);
-
+    
     $self->{notebook_1} = Wx::Notebook->new($self->{panel_1}, wxID_ANY);
     $self->{sizer_1}->Add($self->{notebook_1}, 1, wxEXPAND, 0);
-
-    # --- TAB 1 ---
+    
     $self->{notebook_1_pane_1} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
     $self->{notebook_1}->AddPage($self->{notebook_1_pane_1}, "DLL Finder/Makefile Generator");
-
+    
     $self->{sizer_2} = Wx::FlexGridSizer->new(2, 2, 0, 0);
-
+    
     my $label_1 = Wx::StaticText->new($self->{notebook_1_pane_1}, wxID_ANY, "Source (.pl)");
     $self->{sizer_2}->Add($label_1, 0, wxALIGN_CENTER, 0);
-
+    
     $self->{sizer_4} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{sizer_2}->Add($self->{sizer_4}, 1, wxEXPAND, 0);
-
+    
     $self->{perl_script_path} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "");
     $self->{perl_script_path}->SetMinSize(Wx::Size->new(444, 23));
     $self->{sizer_4}->Add($self->{perl_script_path}, 1, wxEXPAND|wxLEFT|wxRIGHT, 6);
-
+    
     $self->{button_browse_pl} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Browse\N{U+2026}");
     $self->{sizer_4}->Add($self->{button_browse_pl}, 0, wxEXPAND, 0);
-
+    
     $self->{button_3} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Find DLLs");
     $self->{button_3}->SetToolTip("Runs pp_autolink to find the DLLs needed");
     $self->{sizer_4}->Add($self->{button_3}, 0, wxEXPAND, 0);
-
+    
     $self->{sizer_3} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{sizer_2}->Add($self->{sizer_3}, 1, wxEXPAND, 0);
+    
     $self->{sizer_3}->Add(73, 200, 0, 0, 0);
+    
     $self->{sizer_3}->Add(73, 271, 0, 0, 0);
-
-    $self->{txt_cmd_io} = Wx::TextCtrl->new(
-        $self->{notebook_1_pane_1}, wxID_ANY, "",
-        wxDefaultPosition, wxDefaultSize,
-        wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2
-    );
+    
+    $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 1100));
     $self->{sizer_2}->Add($self->{txt_cmd_io}, 1, wxALL|wxEXPAND, 3);
-
-    # --- TAB 2 ---
+    
     $self->{notebook_1_pane_3} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
     $self->{notebook_1}->AddPage($self->{notebook_1_pane_3}, "Inno Setup Compiler");
-
+    
     $self->{iss_main_sizer} = Wx::BoxSizer->new(wxHORIZONTAL);
-
+    
     $self->{iss_left_sizer} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{iss_main_sizer}->Add($self->{iss_left_sizer}, 0, wxALL|wxEXPAND, 6);
-
+    
     my $iss_title = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Inno Setup (.iss) Generator");
     $self->{iss_left_sizer}->Add($iss_title, 0, wxEXPAND, 0);
-
+    
     my $iss_line_1 = Wx::StaticLine->new($self->{notebook_1_pane_3}, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0);
     $self->{iss_left_sizer}->Add($iss_line_1, 0, wxEXPAND|wxTOP, 6);
-
+    
     $self->{iss_form_grid} = Wx::FlexGridSizer->new(0, 2, 6, 8);
     $self->{iss_left_sizer}->Add($self->{iss_form_grid}, 0, wxEXPAND, 0);
-
+    
     my $iss_lbl_appname = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "App Name");
     $self->{iss_form_grid}->Add($iss_lbl_appname, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_app_name} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "NHC Explorer");
     $self->{iss_form_grid}->Add($self->{iss_app_name}, 1, wxEXPAND, 0);
-
+    
     my $iss_lbl_exe = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "App EXE");
     $self->{iss_form_grid}->Add($iss_lbl_exe, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_app_exe} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "nhc-explorer.exe");
     $self->{iss_form_grid}->Add($self->{iss_app_exe}, 1, wxEXPAND, 0);
-
+    
     my $iss_lbl_version = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Version");
     $self->{iss_form_grid}->Add($iss_lbl_version, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_app_version} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "1.0.0");
     $self->{iss_form_grid}->Add($self->{iss_app_version}, 1, wxEXPAND, 0);
-
+    
     my $iss_lbl_publisher = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Publisher");
     $self->{iss_form_grid}->Add($iss_lbl_publisher, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_app_publisher} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "Your Name or Organization");
     $self->{iss_form_grid}->Add($self->{iss_app_publisher}, 1, wxEXPAND, 0);
-
+    
     my $iss_lbl_appid = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "AppId (GUID)");
     $self->{iss_form_grid}->Add($iss_lbl_appid, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_appid_row} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{iss_form_grid}->Add($self->{iss_appid_row}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_appid} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "{{A4F83C2D-9C44-4F6D-A8E2-9F7C3B6D21F0}}");
     $self->{iss_appid_row}->Add($self->{iss_appid}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_btn_gen_guid} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Generate");
     $self->{iss_appid_row}->Add($self->{iss_btn_gen_guid}, 0, wxEXPAND|wxLEFT, 6);
-
+    
     my $iss_lbl_dist_exe = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Dist EXE Path");
     $self->{iss_form_grid}->Add($iss_lbl_dist_exe, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_dist_row} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{iss_form_grid}->Add($self->{iss_dist_row}, 1, wxEXPAND, 0);
-
-    $self->{iss_dist_exe_path} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "..\\dist\\nhc-explorer.exe");
+    
+    $self->{iss_dist_exe_path} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "..\\dist\nhc-explorer.exe");
     $self->{iss_dist_row}->Add($self->{iss_dist_exe_path}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_btn_browse_dist} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Browse\N{U+2026}");
     $self->{iss_dist_row}->Add($self->{iss_btn_browse_dist}, 0, wxEXPAND|wxLEFT, 6);
-
+    
     my $iss_lbl_outputdir = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "OutputDir");
     $self->{iss_form_grid}->Add($iss_lbl_outputdir, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_outdir_row} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{iss_form_grid}->Add($self->{iss_outdir_row}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_output_dir} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "..\\release");
     $self->{iss_outdir_row}->Add($self->{iss_output_dir}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_btn_browse_outdir} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Browse\N{U+2026}");
     $self->{iss_outdir_row}->Add($self->{iss_btn_browse_outdir}, 0, wxEXPAND|wxLEFT, 6);
-
+    
     my $iss_lbl_outputbase = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "OutputBaseFilename");
     $self->{iss_form_grid}->Add($iss_lbl_outputbase, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_output_base} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "nhc-explorer-setup");
     $self->{iss_form_grid}->Add($self->{iss_output_base}, 1, wxEXPAND, 0);
-
+    
     my $iss_lbl_icon = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Icon (.ico)");
     $self->{iss_form_grid}->Add($iss_lbl_icon, 0, wxALIGN_CENTER_VERTICAL, 0);
-
+    
     $self->{iss_icon_row} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{iss_form_grid}->Add($self->{iss_icon_row}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_icon_path} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "");
     $self->{iss_icon_row}->Add($self->{iss_icon_path}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_btn_browse_icon} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Browse\N{U+2026}");
     $self->{iss_icon_row}->Add($self->{iss_btn_browse_icon}, 0, wxEXPAND|wxLEFT, 6);
-
+    
     my $iss_lbl_scope = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Install Scope");
     $self->{iss_form_grid}->Add($iss_lbl_scope, 0, wxALIGN_CENTER_VERTICAL, 0);
-
-    $self->{iss_install_scope} = Wx::Choice->new(
-        $self->{notebook_1_pane_3}, wxID_ANY,
-        wxDefaultPosition, wxDefaultSize,
-        ["Per-user (PrivilegesRequired=lowest)", "All users (admin)"],
-    );
+    
+    $self->{iss_install_scope} = Wx::Choice->new($self->{notebook_1_pane_3}, wxID_ANY, wxDefaultPosition, wxDefaultSize, ["Per-user (PrivilegesRequired=lowest)", "All users (admin)"], );
     $self->{iss_install_scope}->SetSelection(0);
     $self->{iss_form_grid}->Add($self->{iss_install_scope}, 1, wxEXPAND, 0);
-
+    
     my $iss_lbl_options = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Options");
     $self->{iss_left_sizer}->Add($iss_lbl_options, 0, wxEXPAND|wxTOP, 8);
-
+    
     $self->{iss_opt_sizer} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{iss_left_sizer}->Add($self->{iss_opt_sizer}, 0, wxEXPAND, 0);
-
+    
     $self->{iss_chk_desktop_icon} = Wx::CheckBox->new($self->{notebook_1_pane_3}, wxID_ANY, "Add Desktop Icon task");
     $self->{iss_chk_desktop_icon}->SetValue(1);
     $self->{iss_opt_sizer}->Add($self->{iss_chk_desktop_icon}, 0, wxEXPAND, 0);
-
+    
     $self->{iss_chk_launch} = Wx::CheckBox->new($self->{notebook_1_pane_3}, wxID_ANY, "Launch after install (postinstall)");
     $self->{iss_chk_launch}->SetValue(1);
     $self->{iss_opt_sizer}->Add($self->{iss_chk_launch}, 0, wxEXPAND, 0);
-
+    
     $self->{iss_chk_kill_running} = Wx::CheckBox->new($self->{notebook_1_pane_3}, wxID_ANY, "Kill running app on upgrade (taskkill in [Code])");
     $self->{iss_chk_kill_running}->SetValue(1);
     $self->{iss_opt_sizer}->Add($self->{iss_chk_kill_running}, 0, wxEXPAND, 0);
-
+    
     $self->{iss_btn_row} = Wx::BoxSizer->new(wxHORIZONTAL);
     $self->{iss_left_sizer}->Add($self->{iss_btn_row}, 0, wxEXPAND|wxTOP, 10);
-
+    
     $self->{iss_btn_generate} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Generate Preview");
     $self->{iss_btn_row}->Add($self->{iss_btn_generate}, 1, wxEXPAND, 0);
-
+    
     $self->{iss_btn_save} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Save .iss\N{U+2026}");
     $self->{iss_btn_row}->Add($self->{iss_btn_save}, 0, wxEXPAND|wxLEFT, 6);
-
+    
     $self->{iss_btn_compile} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Compile");
     $self->{iss_btn_row}->Add($self->{iss_btn_compile}, 0, wxEXPAND|wxLEFT, 6);
-
+    
     $self->{iss_left_sizer}->Add(10, 10, 1, wxEXPAND, 0);
-
+    
     $self->{iss_right_sizer} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{iss_main_sizer}->Add($self->{iss_right_sizer}, 1, wxALL|wxEXPAND, 6);
-
+    
     my $iss_lbl_preview = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Preview (.iss)");
     $self->{iss_right_sizer}->Add($iss_lbl_preview, 0, wxEXPAND, 0);
-
-    $self->{iss_preview} = Wx::TextCtrl->new(
-        $self->{notebook_1_pane_3}, wxID_ANY, "",
-        wxDefaultPosition, wxDefaultSize,
-        wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2
-    );
+    
+    $self->{iss_preview} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{iss_preview}->SetMinSize(Wx::Size->new(520, 1100));
     $self->{iss_right_sizer}->Add($self->{iss_preview}, 1, wxEXPAND|wxTOP, 6);
-
-    # --- TAB 3 ---
+    
     $self->{notebook_1_Help} = Wx::Panel->new($self->{notebook_1}, wxID_ANY);
     $self->{notebook_1}->AddPage($self->{notebook_1_Help}, "Help");
-
+    
     $self->{iss_form_grid}->AddGrowableCol(1);
+    
     $self->{notebook_1_pane_3}->SetSizer($self->{iss_main_sizer});
+    
     $self->{notebook_1_pane_1}->SetSizer($self->{sizer_2});
+    
     $self->{panel_1}->SetSizer($self->{sizer_1});
-
+    
     $self->Layout();
-
-    # events
     Wx::Event::EVT_MENU($self, $self->{Open}->GetId, $self->can('select_perl_script'));
     Wx::Event::EVT_MENU($self, $self->{Exit}->GetId, $self->can('DoQuit'));
     Wx::Event::EVT_MENU($self, $self->{Aboutt}->GetId, $self->can('show_license_dialog'));
     Wx::Event::EVT_BUTTON($self, $self->{button_browse_pl}->GetId, $self->can('select_perl_script'));
     Wx::Event::EVT_BUTTON($self, $self->{button_3}->GetId, $self->can('run_pp_autolink'));
-
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_gen_guid}->GetId, $self->can('generate_iss_appid_guid'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_dist}->GetId, $self->can('select_iss_dist_exe'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_outdir}->GetId, $self->can('select_iss_output_dir'));
@@ -280,15 +271,66 @@ sub new {
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_save}->GetId, $self->can('save_iss_file'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_compile}->GetId, $self->can('compile_iss_file'));
 
-    # IMPORTANT: only seed/update ISS defaults when the ISS tab becomes active AND a file was selected
-    Wx::Event::EVT_NOTEBOOK_PAGE_CHANGED($self, $self->{notebook_1}, $self->can('on_notebook_page_changed'));
+    # end wxGlade
 
-    # ----- background worker comms -----
+    # -------------------------
+    # BEGIN custom code (safe from wxGlade overwrites)
+    # -------------------------
+
+    # State used for "only seed ISS when in focus + file selected"
+    $self->{_iss_seeded_from_script} = 0;
+    $self->{_iss_pending_seed}       = 0;
+    $self->{_script_abs}             = '';
+    $self->{_proj_root}              = '';
+    $self->{_installer_dir}          = '';
+    $self->{_dist_dir}               = '';
+    $self->{_release_dir}            = '';
+
+    # Background worker comms
     $self->{_q}     = Thread::Queue->new();
     $self->{_timer} = Wx::Timer->new($self, wxID_ANY);
     Wx::Event::EVT_TIMER($self, $self->{_timer}, sub { $self->_drain_worker_queue });
-    $self->{_timer}->Start(100);
-    # -----------------------------------
+    $self->{_timer}->Start(100); # 100ms poll
+
+    # If user types/pastes a valid file into the DLL tab path box,
+    # compute project layout and mark ISS as "pending seed".
+    Wx::Event::EVT_TEXT($self, $self->{perl_script_path}, sub {
+        my ($win, $evt) = @_;
+
+        my $p = $win->{perl_script_path}->GetValue // '';
+        $p =~ s/^\s+|\s+$//g;
+
+        if ($p && -f $p) {
+            $win->_compute_project_layout_from_script($p);
+            $win->{_iss_pending_seed} = 1;
+
+            # Do NOT touch ISS unless tab is active
+            my $cur = $win->{notebook_1}->GetSelection;
+            if (defined($cur) && $cur == 1) {
+                $win->_seed_iss_fields_from_script();
+            }
+        }
+
+        $evt->Skip;
+    });
+
+    # Seed ISS on tab focus (only if pending and script selected)
+    Wx::Event::EVT_NOTEBOOK_PAGE_CHANGED($self, $self->{notebook_1}, sub {
+        my ($win, $evt) = @_;
+        my $idx = $evt->GetSelection; # new selection
+        if (defined($idx) && $idx == 1) { # ISS tab
+            my $p = $win->{perl_script_path}->GetValue // '';
+            $p =~ s/^\s+|\s+$//g;
+            if ($p && $win->{_iss_pending_seed}) {
+                $win->_seed_iss_fields_from_script();
+            }
+        }
+        $evt->Skip;
+    });
+
+    # -------------------------
+    # END custom code
+    # -------------------------
 
     return $self;
 }
@@ -296,6 +338,7 @@ sub new {
 sub _append_io {
     my ($self, $text) = @_;
     return unless defined $text && length $text;
+
     $self->{txt_cmd_io}->AppendText($text);
     $self->{txt_cmd_io}->ShowPosition($self->{txt_cmd_io}->GetLastPosition);
 }
@@ -321,11 +364,38 @@ sub _trim {
     return $s;
 }
 
+sub _safe_abs {
+    my ($path) = @_;
+    $path = _trim($path);
+    return '' if $path eq '';
+    my $abs = eval { Cwd::abs_path($path) };
+    return $abs || $path;
+}
+
+sub _abs2rel_if_possible {
+    my ($base_dir, $path) = @_;
+    $base_dir = _safe_abs($base_dir);
+    $path     = _safe_abs($path);
+    return $path if !$base_dir || !$path;
+
+    # If different drives, keep absolute
+    my ($drive_p) = $path     =~ /^([A-Za-z]:)/;
+    my ($drive_b) = $base_dir =~ /^([A-Za-z]:)/;
+    if (defined $drive_p && defined $drive_b && uc($drive_p) ne uc($drive_b)) {
+        return $path;
+    }
+
+    my $rel = eval { File::Spec->abs2rel($path, $base_dir) };
+    return $rel || $path;
+}
+
 sub _guid_hex {
     my ($nbytes) = @_;
     $nbytes ||= 16;
     my $s = '';
-    for (1..$nbytes) { $s .= sprintf("%02X", int(rand(256))); }
+    for (1..$nbytes) {
+        $s .= sprintf("%02X", int(rand(256)));
+    }
     return $s;
 }
 
@@ -340,14 +410,6 @@ sub _new_guid_upper {
     );
 }
 
-sub _safe_abs {
-    my ($path) = @_;
-    $path = _trim($path);
-    return '' if $path eq '';
-    my $abs = eval { abs_path($path) };
-    return $abs || $path;
-}
-
 sub _normalize_appid {
     my ($appid_raw) = @_;
     my $appid = _trim($appid_raw);
@@ -357,28 +419,6 @@ sub _normalize_appid {
 
     return '' if $appid !~ /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
     return '{{' . $appid . '}}';
-}
-
-sub _abs2rel_if_possible {
-    my ($base_dir, $path) = @_;
-    $base_dir = _safe_abs($base_dir);
-    $path     = _safe_abs($path);
-    return $path if !$base_dir || !$path;
-
-    # On Windows, abs2rel only works reliably if same volume.
-    my ($vol_p) = File::Spec->splitpath($path, 0);
-    my ($vol_b) = File::Spec->splitpath($base_dir, 1);
-
-    # splitpath($dir,1) returns volume+dir; volume is still OK to compare loosely:
-    # Safer: compare drive letters from path strings
-    my ($drive_p) = $path =~ /^([A-Za-z]:)/;
-    my ($drive_b) = $base_dir =~ /^([A-Za-z]:)/;
-    if (defined $drive_p && defined $drive_b && uc($drive_p) ne uc($drive_b)) {
-        return $path;
-    }
-
-    my $rel = eval { File::Spec->abs2rel($path, $base_dir) };
-    return $rel || $path;
 }
 
 sub _compute_project_layout_from_script {
@@ -402,34 +442,25 @@ sub _seed_iss_fields_from_script {
     my $script_abs = $self->{_script_abs} || '';
     return if !$script_abs;
 
-    my $proj_root     = $self->{_proj_root}     || dirname($script_abs);
-    my $installer_dir = $self->{_installer_dir} || File::Spec->catdir($proj_root,'installer');
-    my $dist_dir      = $self->{_dist_dir}      || File::Spec->catdir($proj_root,'dist');
-    my $release_dir   = $self->{_release_dir}   || File::Spec->catdir($proj_root,'release');
+    my $proj_root     = $self->{_proj_root}     || File::Basename::dirname($script_abs);
+    my $installer_dir = $self->{_installer_dir} || File::Spec->catdir($proj_root, 'installer');
+    my $dist_dir      = $self->{_dist_dir}      || File::Spec->catdir($proj_root, 'dist');
+    my $release_dir   = $self->{_release_dir}   || File::Spec->catdir($proj_root, 'release');
 
-    # Base name for defaults
     my $base = File::Basename::basename($script_abs);
-    $base =~ s/\.(pl|pm)$//i;   # if no extension, leaves as-is
+    $base =~ s/\.(pl|pm)$//i; # if no extension, leaves as-is
+
     my $exe_name = $base . ".exe";
     my $out_base = $base . "-setup";
 
-    # Keep user's edits if already filled; otherwise seed.
-    if (_trim($self->{iss_app_exe}->GetValue) eq '') {
+    # Seed EXE/output base (don't keep clobbering if user edits later)
+    if (!$self->{_iss_seeded_from_script}) {
         $self->{iss_app_exe}->SetValue($exe_name);
-    } else {
-        # If it's still the default-ish "nhc-explorer.exe" and script suggests otherwise, update it
-        # (only when we haven't previously seeded)
-        if (!$self->{_iss_seeded_from_script}) {
-            $self->{iss_app_exe}->SetValue($exe_name);
-        }
-    }
-
-    if (_trim($self->{iss_output_base}->GetValue) eq '' || !$self->{_iss_seeded_from_script}) {
         $self->{iss_output_base}->SetValue($out_base);
     }
 
-    # dist exe path relative to installer/ (preferred)
-    my $dist_exe_abs = File::Spec->catfile($dist_dir, $self->{iss_app_exe}->GetValue);
+    # dist exe relative to installer/
+    my $dist_exe_abs = File::Spec->catfile($dist_dir, $exe_name);
     my $dist_exe_rel = _abs2rel_if_possible($installer_dir, $dist_exe_abs);
     $self->{iss_dist_exe_path}->SetValue($dist_exe_rel);
 
@@ -437,7 +468,7 @@ sub _seed_iss_fields_from_script {
     my $out_rel = _abs2rel_if_possible($installer_dir, $release_dir);
     $self->{iss_output_dir}->SetValue($out_rel);
 
-    # If icon path is already set and absolute, convert to rel-to-installer if possible
+    # icon path (if already set) relative to installer/
     my $icon = _trim($self->{iss_icon_path}->GetValue);
     if ($icon) {
         my $icon_rel = _abs2rel_if_possible($installer_dir, $icon);
@@ -448,40 +479,25 @@ sub _seed_iss_fields_from_script {
     $self->{_iss_pending_seed}       = 0;
 }
 
-sub on_notebook_page_changed {
-    my ($self, $event) = @_;
-
-    # Only act when ISS tab becomes active
-    my $idx = $event->GetSelection;
-    # Current order: 0=DLL tab, 1=ISS tab, 2=Help tab
-    if (defined($idx) && $idx == 1) {
-        my $script = _trim($self->{perl_script_path}->GetValue);
-        if ($script && $self->{_iss_pending_seed}) {
-            $self->_seed_iss_fields_from_script();
-            # Do not auto-generate until user clicks Generate Preview:
-            # but we *can* refresh preview if it's already non-empty
-            if (_trim($self->{iss_preview}->GetValue) ne '') {
-                $self->generate_iss_preview(undef);
-            }
-        }
-    }
-
-    $event->Skip;
-}
-
 sub DoQuit {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::DoQuit <event_handler>
+    # end wxGlade
     $self->Close;
 }
 
 sub show_license_dialog {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::show_license_dialog <event_handler>
     warn "Event handler (show_license_dialog) not implemented";
     $event->Skip;
+    # end wxGlade
 }
 
 sub select_perl_script {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_perl_script <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -502,13 +518,10 @@ sub select_perl_script {
         $self->{perl_script_path}->SetValue($path);
         $self->_append_io("Selected: $path\n");
 
-        # Compute project layout from selected script
+        # compute, then mark pending seed (do not touch ISS unless active)
         $self->_compute_project_layout_from_script($path);
-
-        # Mark ISS as pending-seed. DO NOT touch ISS fields unless ISS tab is active.
         $self->{_iss_pending_seed} = 1;
 
-        # If ISS tab is already active, seed now.
         my $cur = $self->{notebook_1}->GetSelection;
         if (defined($cur) && $cur == 1) {
             $self->_seed_iss_fields_from_script();
@@ -520,9 +533,12 @@ sub select_perl_script {
 
 sub run_pp_autolink {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_pp_autolink <event_handler>
+    # end wxGlade
 
     my $script = $self->{perl_script_path}->GetValue // '';
     $script =~ s/^\s+|\s+$//g;
+
     my $exe = $script;
     $exe =~ s/\.pl//g;
     $exe .= ".exe";
@@ -537,6 +553,15 @@ sub run_pp_autolink {
     }
 
     $script = Cwd::abs_path($script) || $script;
+
+    # Seed ISS from *this* path too (recommended).
+    # Do NOT touch ISS controls unless tab is active; otherwise mark pending.
+    $self->_compute_project_layout_from_script($script);
+    $self->{_iss_pending_seed} = 1;
+    my $cur = $self->{notebook_1}->GetSelection;
+    if (defined($cur) && $cur == 1) {
+        $self->_seed_iss_fields_from_script();
+    }
 
     $self->{button_3}->Enable(0);
     $self->_append_io("\n=== Starting pp_ autolink scan ===\n\n");
@@ -579,7 +604,7 @@ sub run_pp_autolink {
                 $line_count++;
                 $qref->enqueue($line);
                 if ($line =~ m/^CMD:/) {
-                  $CMD_line = $line;
+                    $CMD_line = $line;
                 }
             }
 
@@ -593,17 +618,19 @@ sub run_pp_autolink {
             pop @parts;   # perl
             pop @parts;
             push @parts, "c", "bin";
-            my $filter = $volume . join("/", @parts);
+
+            my $filter    = $volume . join("/", @parts);
             my $perl_root = lc File::Spec->catdir($volume, @parts);
-            my @cmd = split / /, $CMD_line;
-            my @filtered_libs = grep { m/\Q$filter\E/i } @cmd;
+
+            my @cmd2 = split / /, $CMD_line;
+            my @filtered_libs = grep { m/\Q$filter\E/i } @cmd2;
 
             $qref->enqueue("\n=== Perl moduled DLLs to include ===\n\n");
 
             my $wxpar = "wxpar -o $exe";
             foreach my $lib (@filtered_libs) {
-              $wxpar .= " --link $lib ";
-              $qref->enqueue("$lib\n");
+                $wxpar .= " --link $lib ";
+                $qref->enqueue("$lib\n");
             }
 
             $wxpar .= " $script --gui";
@@ -651,43 +678,42 @@ EOF
     }, $script, $q)->detach();
 }
 
-# ----------------------------
-# Inno Setup handlers
-# ----------------------------
-
 sub generate_iss_appid_guid {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::generate_iss_appid_guid <event_handler>
+    # end wxGlade
     my $guid = _new_guid_upper();
     $self->{iss_appid}->SetValue('{{' . $guid . '}}');
 }
 
 sub select_iss_dist_exe {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_dist_exe <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
         "Select EXE to install (dist output)",
-        "",
-        "",
+        "", "",
         "Executable (*.exe)|*.exe|All files (*.*)|*.*",
         Wx::wxFD_OPEN() | Wx::wxFD_FILE_MUST_EXIST()
     );
 
     if ($dlg->ShowModal == Wx::wxID_OK()) {
         my $p = $dlg->GetPath;
-
-        # convert to rel-to-installer if we know installer dir
-        my $installer_dir = $self->{_installer_dir} || '';
-        if ($installer_dir) {
-            $p = _abs2rel_if_possible($installer_dir, $p);
+        if ($self->{_installer_dir}) {
+            $p = _abs2rel_if_possible($self->{_installer_dir}, $p);
         }
         $self->{iss_dist_exe_path}->SetValue($p);
     }
+
     $dlg->Destroy;
 }
 
 sub select_iss_output_dir {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_output_dir <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::DirDialog->new(
         $self,
@@ -698,24 +724,24 @@ sub select_iss_output_dir {
 
     if ($dlg->ShowModal == Wx::wxID_OK()) {
         my $p = $dlg->GetPath;
-
-        my $installer_dir = $self->{_installer_dir} || '';
-        if ($installer_dir) {
-            $p = _abs2rel_if_possible($installer_dir, $p);
+        if ($self->{_installer_dir}) {
+            $p = _abs2rel_if_possible($self->{_installer_dir}, $p);
         }
         $self->{iss_output_dir}->SetValue($p);
     }
+
     $dlg->Destroy;
 }
 
 sub select_iss_icon_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_icon_file <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
         "Select .ico (used for installer and shortcuts)",
-        "",
-        "",
+        "", "",
         "Icons (*.ico)|*.ico|All files (*.*)|*.*",
         Wx::wxFD_OPEN() | Wx::wxFD_FILE_MUST_EXIST()
     );
@@ -723,24 +749,24 @@ sub select_iss_icon_file {
     if ($dlg->ShowModal == Wx::wxID_OK()) {
         my $p = $dlg->GetPath;
 
-        # FIX: never use this path inside a regex; just store it
-        # Also convert to rel-to-installer if possible
-        my $installer_dir = $self->{_installer_dir} || '';
-        if ($installer_dir) {
-            $p = _abs2rel_if_possible($installer_dir, $p);
+        # IMPORTANT: never put this into a regex (fixes \U/\u/\i crashes)
+        if ($self->{_installer_dir}) {
+            $p = _abs2rel_if_possible($self->{_installer_dir}, $p);
         }
         $self->{iss_icon_path}->SetValue($p);
     }
+
     $dlg->Destroy;
 }
 
 sub _set_preview_text {
     my ($self, $text) = @_;
 
-    # Requirement #1: when regenerated, clear old contents; then jump to top when complete
+    # Requirement:
+    # 1) clear old contents on regeneration
+    # 2) jump to top when completed
     $self->{iss_preview}->Clear;
     $self->{iss_preview}->SetValue($text // '');
-
     $self->{iss_preview}->SetInsertionPoint(0);
     $self->{iss_preview}->ShowPosition(0);
 }
@@ -761,7 +787,6 @@ sub _collect_iss_values {
 
     my $scope_sel = $self->{iss_install_scope}->GetSelection;
     $scope_sel = 0 if !defined($scope_sel) || $scope_sel < 0;
-
     my $per_user = ($scope_sel == 0) ? 1 : 0;
 
     my $desktop_icon = $self->{iss_chk_desktop_icon}->GetValue ? 1 : 0;
@@ -789,18 +814,23 @@ sub _collect_iss_values {
 
 sub generate_iss_preview {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::generate_iss_preview <event_handler>
+    # end wxGlade
 
-    # Requirement: do not update ISS tab until it's in focus and file selected
+    # Do not update ISS unless it's in focus AND a file is selected
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
         $self->_append_io("[iss] Not generating preview (ISS tab not active).\n");
         return;
     }
+
     my $script = _trim($self->{perl_script_path}->GetValue);
     if (!$script) {
         $self->_append_io("[iss] Not generating preview (no script selected).\n");
         return;
     }
+
+    # If pending, seed now (tab is active)
     if ($self->{_iss_pending_seed}) {
         $self->_seed_iss_fields_from_script();
     }
@@ -821,22 +851,14 @@ sub generate_iss_preview {
         $kill_running,
     ) = $self->_collect_iss_values();
 
-    my $appid_effective = $appid;
-    if (!$appid_effective) {
-        $appid_effective = '{{' . _new_guid_upper() . '}}';
-    }
+    my $appid_effective = $appid || ('{{' . _new_guid_upper() . '}}');
 
     my $priv_lines = $per_user
         ? "PrivilegesRequired=lowest\nPrivilegesRequiredOverridesAllowed=commandline"
         : "PrivilegesRequired=admin";
 
-    my $setup_icon_line = '';
-    my $shortcut_icon_field = '';
-    if ($icon_path) {
-        # No regex, no interpolation into regex: just plain string lines.
-        $setup_icon_line      = "SetupIconFile=$icon_path";
-        $shortcut_icon_field  = "IconFilename: \"$icon_path\"";
-    }
+    my $setup_icon_line     = $icon_path ? "SetupIconFile=$icon_path" : '';
+    my $shortcut_icon_field = $icon_path ? qq{IconFilename: "$icon_path"} : '';
 
     my $tasks_block = '';
     if ($desktop_icon) {
@@ -880,18 +902,9 @@ end;
 CODE
     }
 
-    # HEREDOC: generate what you preview/save
     my $iss = <<"ISS";
 ; ------------------------------------------------------------
 ; Generated by wxPerl GUI Helper for Windows (Inno Setup tab)
-; ------------------------------------------------------------
-; Layout assumed:
-;
-; project-root/
-;   installer/
-;     yourapp.iss
-;   dist/
-;     $app_exe
 ; ------------------------------------------------------------
 
 #define MyAppName "$app_name"
@@ -930,21 +943,18 @@ ISS
 
 [Files]
 
-; IMPORTANT: path relative to installer/ folder (or absolute)
 Source: "$dist_exe_path"; DestDir: "{app}"; Flags: ignoreversion
 
 $tasks_block
 [Icons]
 
-; Start Menu folder
+; Start Menu shortcut
 Name: "{userprograms}\\{#MyAppName}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"
 ISS2
 
     if ($shortcut_icon_field) {
-        $iss .= "; Use the same .ico for the Start Menu shortcut (optional):\n";
-        $iss .= ";   $shortcut_icon_field\n\n";
-        # Also include it "enabled" by default since user asked for same icon for installer+installed program.
-        $iss .= "Name: \"{userprograms}\\{#MyAppName}\\{#MyAppName}\"; Filename: \"{app}\\{#MyAppExe}\"; $shortcut_icon_field\n";
+        $iss .= qq{; Use selected icon for shortcuts (enabled):\n};
+        $iss .= qq{Name: "{userprograms}\\{#MyAppName}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; $shortcut_icon_field\n};
     }
 
     $iss .= <<"ISS3";
@@ -957,32 +967,31 @@ ISS3
         my $line = qq{Name: "{userdesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; Tasks: desktopicon};
         if ($shortcut_icon_field) {
             $line .= qq{; $shortcut_icon_field};
-            $line =~ s/;\s+IconFilename/IconFilename/; # activate
+            $line =~ s/;\s+IconFilename/IconFilename/;
         }
         $iss .= "\n; Optional desktop shortcut\n$line\n";
     }
 
     $iss .= "\n";
-    $iss .= $run_block if $run_block;
+    $iss .= $run_block  if $run_block;
     $iss .= "\n";
     $iss .= $code_block if $code_block;
 
     $self->_set_preview_text($iss);
-
-    # optional: log to worker IO pane, enqueue-like feel
-    my $q = $self->{_q};
-    $q->enqueue("\n[iss] Preview generated.\n");
+    $self->{_q}->enqueue("[iss] Preview generated.\n");
 }
 
 sub save_iss_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::save_iss_file <event_handler>
+    # end wxGlade
 
-    # Only allow save when ISS tab active and script selected
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
         $self->_append_io("[iss] Not saving (ISS tab not active).\n");
         return;
     }
+
     my $script = _trim($self->{perl_script_path}->GetValue);
     if (!$script) {
         $self->_append_io("[iss] Not saving (no script selected).\n");
@@ -1023,12 +1032,15 @@ sub save_iss_file {
 
 sub compile_iss_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::compile_iss_file <event_handler>
+    # end wxGlade
 
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
         $self->_append_io("[iss] Not compiling (ISS tab not active).\n");
         return;
     }
+
     my $script = _trim($self->{perl_script_path}->GetValue);
     if (!$script) {
         $self->_append_io("[iss] Not compiling (no script selected).\n");
@@ -1046,6 +1058,7 @@ sub compile_iss_file {
 }
 
 # end of class MyFrame
+
 1;
 
 package MyApp;
@@ -1065,6 +1078,7 @@ sub OnInit {
 
     return 1;
 }
+# end of class MyApp
 
 package main;
 
