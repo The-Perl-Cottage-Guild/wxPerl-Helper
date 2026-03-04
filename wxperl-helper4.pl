@@ -858,7 +858,6 @@ sub generate_iss_preview {
         : "PrivilegesRequired=admin";
 
     my $setup_icon_line     = $icon_path ? "SetupIconFile=$icon_path" : '';
-    my $shortcut_icon_field = $icon_path ? qq{IconFilename: "$icon_path"} : '';
 
     my $tasks_block = '';
     if ($desktop_icon) {
@@ -920,7 +919,7 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 
-DefaultDirName={localappdata}\\Programs\\$output_base
+DefaultDirName={localappdata}\\Programs\\{#MyAppName}
 DefaultGroupName={#MyAppName}
 
 $priv_lines
@@ -949,13 +948,18 @@ $tasks_block
 [Icons]
 
 ; Start Menu shortcut
-Name: "{userprograms}\\{#MyAppName}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"
 ISS2
 
-    if ($shortcut_icon_field) {
-        $iss .= qq{; Use selected icon for shortcuts (enabled):\n};
-        $iss .= qq{Name: "{userprograms}\\{#MyAppName}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; $shortcut_icon_field\n};
+    # Build IconFilename parameter safely (no regex)
+    my $icon_param = '';
+    if (defined($icon_path) && length($icon_path)) {
+        $icon_param = qq{; IconFilename: "$icon_path"};
     }
+
+    my $start_menu_line =
+        qq{Name: "{userprograms}\\{#MyAppName}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"} . $icon_param;
+
+    $iss .= $start_menu_line . "\n";
 
     $iss .= <<"ISS3";
 
@@ -964,11 +968,15 @@ Name: "{userprograms}\\{#MyAppName}\\Uninstall {#MyAppName}"; Filename: "{uninst
 ISS3
 
     if ($desktop_icon) {
-        my $line = qq{Name: "{userdesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; Tasks: desktopicon};
-        if ($shortcut_icon_field) {
-            $line .= qq{; $shortcut_icon_field};
-            $line =~ s/;\s+IconFilename/IconFilename/;
+        # Build IconFilename parameter safely (no regex)
+        my $icon_param = '';
+        if (defined($icon_path) && length($icon_path)) {
+            $icon_param = qq{; IconFilename: "$icon_path"};
         }
+
+        my $line =
+            qq{Name: "{userdesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExe}"; Tasks: desktopicon} . $icon_param;
+
         $iss .= "\n; Optional desktop shortcut\n$line\n";
     }
 
