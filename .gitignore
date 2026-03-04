@@ -1,0 +1,7 @@
+\#~wxg.autosave~wxperl-helper (# Edit conflict 2026-02-28 3hipzbC #).wxg#
+\#~wxg.autosave~wxperl-helperl4.wxg#
+!.gitignore
+.*.swp
+*.exe
+*.bak
+*.wxparargs
