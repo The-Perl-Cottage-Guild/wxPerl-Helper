@@ -12,7 +12,7 @@ use Wx;
 use threads;
 use Thread::Queue;
 use File::Spec;
-use Cwd qw(abs_path);
+use Cwd qw(abs_path getcwd);
 use File::Basename ();   # NOTE: we fully-qualify dirname/basename inside package MyFrame
 
 # begin wxGlade: dependencies
@@ -99,7 +99,10 @@ sub new {
     $self->{button_1} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Save Makefile");
     $self->{sizer_3}->Add($self->{button_1}, 0, 0, 0);
     
-    $self->{sizer_3}->Add(93, 271, 0, 0, 0);
+    $self->{button_2} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Run Makefile");
+    $self->{sizer_3}->Add($self->{button_2}, 0, wxTOP, 6);
+    
+    $self->{sizer_3}->Add(93, 238, 0, 0, 0);
     
     $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 1100));
@@ -266,6 +269,8 @@ sub new {
     Wx::Event::EVT_MENU($self, $self->{Aboutt}->GetId, $self->can('show_license_dialog'));
     Wx::Event::EVT_BUTTON($self, $self->{button_browse_pl}->GetId, $self->can('select_perl_script'));
     Wx::Event::EVT_BUTTON($self, $self->{button_3}->GetId, $self->can('run_pp_autolink'));
+    Wx::Event::EVT_BUTTON($self, $self->{button_1}->GetId, $self->can('save_makefile_file'));
+    Wx::Event::EVT_BUTTON($self, $self->{button_2}->GetId, $self->can('run_makefile_file'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_gen_guid}->GetId, $self->can('generate_iss_appid_guid'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_dist}->GetId, $self->can('select_iss_dist_exe'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_outdir}->GetId, $self->can('select_iss_output_dir'));
@@ -289,15 +294,15 @@ sub new {
     $self->{_dist_dir}               = '';
     $self->{_release_dir}            = '';
     $self->{_generated_makefile}     = '';
+    $self->{_makefile_saved_path}    = '';
+
+    $self->{button_2}->Enable(0) if $self->{button_2};
 
     # Background worker comms
     $self->{_q}     = Thread::Queue->new();
     $self->{_timer} = Wx::Timer->new($self, wxID_ANY);
     Wx::Event::EVT_TIMER($self, $self->{_timer}, sub { $self->_drain_worker_queue });
     $self->{_timer}->Start(100); # 100ms poll
-
-    # Save Makefile button (kept in custom code so wxGlade regen won't wipe it)
-    Wx::Event::EVT_BUTTON($self, $self->{button_1}->GetId, $self->can('save_makefile_file'));
 
     # If user types/pastes a valid file into the DLL tab path box,
     # compute project layout and mark ISS as "pending seed".
@@ -318,6 +323,12 @@ sub new {
             }
         }
 
+        $evt->Skip;
+    });
+
+    Wx::Event::EVT_TEXT($self, $self->{txt_cmd_io}, sub {
+        my ($win, $evt) = @_;
+        $win->_refresh_run_makefile_button_state();
         $evt->Skip;
     });
 
@@ -350,67 +361,27 @@ sub _append_io {
     $self->{txt_cmd_io}->ShowPosition($self->{txt_cmd_io}->GetLastPosition);
 }
 
-sub _extract_makefile_from_io {
+
+sub _refresh_run_makefile_button_state {
     my ($self) = @_;
 
-    my $text = $self->{txt_cmd_io}->GetValue // '';
-    return '' if $text eq '';
+    return unless $self->{button_2};
 
-    if ($text =~ /(# -- BEGIN MAKEFILE --.*?# -- END MAKEFILE --\s*)/s) {
-        return $1;
-    }
-
-    return '';
-}
-
-sub save_makefile_file {
-    my ($self, $event) = @_;
-    # custom handler for Save Makefile button
-
-    my $script = _trim($self->{perl_script_path}->GetValue);
-    if (!$script) {
-        $self->_append_io("[makefile] Not saving (no script selected).\n");
+    my $saved_path = _trim($self->{_makefile_saved_path});
+    if (!$saved_path) {
+        $self->{button_2}->Enable(0);
         return;
     }
 
-    my $makefile = $self->{_generated_makefile} || $self->_extract_makefile_from_io();
-    if (!$makefile) {
-        Wx::MessageBox(
-            "Nothing to save yet.\n\nRun 'Find DLLs' first so the Makefile can be generated.",
-            "Save Makefile",
-            wxOK | wxICON_INFORMATION,
-            $self
-        );
+    my $current = $self->_current_makefile_text();
+    my $saved   = $self->{_generated_makefile} || '';
+
+    if ($current && $saved && $current eq $saved) {
+        $self->{button_2}->Enable(1);
         return;
     }
 
-    my $default_name = "Makefile";
-
-    my $dlg = Wx::FileDialog->new(
-        $self,
-        "Save Makefile",
-        "",
-        $default_name,
-        "Makefile (Makefile)|Makefile|Text files (*.txt)|*.txt|All files (*.*)|*.*",
-        Wx::wxFD_SAVE() | Wx::wxFD_OVERWRITE_PROMPT()
-    );
-
-    if ($dlg->ShowModal == Wx::wxID_OK()) {
-        my $path = $dlg->GetPath;
-
-        if (open(my $fh, ">", $path)) {
-            binmode($fh);
-            print {$fh} $makefile;
-            close($fh);
-
-            $self->_append_io("[makefile] Saved: $path\n");
-            Wx::MessageBox("Saved:\n$path", "Save Makefile", wxOK | wxICON_INFORMATION, $self);
-        } else {
-            Wx::MessageBox("Failed to save:\n$path\n\n$!", "Save Makefile", wxOK | wxICON_ERROR, $self);
-        }
-    }
-
-    $dlg->Destroy;
+    $self->{button_2}->Enable(0);
 }
 
 sub _drain_worker_queue {
@@ -420,12 +391,24 @@ sub _drain_worker_queue {
     while (defined(my $msg = $q->dequeue_nb)) {
         if (ref($msg) eq 'HASH') {
             if (($msg->{type} // '') eq 'DONE') {
-                $self->_append_io("\n[done] exit_code=$msg->{exit_code}\n");
+                $self->_append_io("
+[done] exit_code=$msg->{exit_code}
+");
                 $self->{button_3}->Enable(1);
+                $self->_refresh_run_makefile_button_state();
+                next;
+            }
+            if (($msg->{type} // '') eq 'MAKE_DONE') {
+                $self->_append_io("
+[make done] exit_code=$msg->{exit_code}
+");
+                $self->_refresh_run_makefile_button_state();
                 next;
             }
             if (($msg->{type} // '') eq 'MAKEFILE') {
                 $self->{_generated_makefile} = $msg->{text} // '';
+                $self->_append_io($self->{_generated_makefile});
+                $self->_refresh_run_makefile_button_state();
                 next;
             }
         }
@@ -607,6 +590,204 @@ sub select_perl_script {
     $dlg->Destroy;
 }
 
+
+sub _extract_makefile_from_text {
+    my ($self, $text) = @_;
+
+    $text //= '';
+    return '' if $text eq '';
+
+    my $found = '';
+    while ($text =~ /(# -- BEGIN MAKEFILE --.*?# -- END MAKEFILE --\s*)/sg) {
+        $found = $1;
+    }
+
+    return $found;
+}
+
+sub _current_makefile_text {
+    my ($self) = @_;
+
+    my $text = $self->{txt_cmd_io}->GetValue // '';
+    my $makefile = $self->_extract_makefile_from_text($text);
+    $makefile ||= $self->{_generated_makefile} || '';
+
+    return $makefile;
+}
+
+sub _write_makefile_file {
+    my ($self, $path, $makefile) = @_;
+
+    return 0 if !_trim($path);
+    return 0 if !_trim($makefile);
+
+    if (open(my $fh, '>', $path)) {
+        binmode($fh);
+        print {$fh} $makefile;
+        close($fh);
+        return 1;
+    }
+
+    return 0;
+}
+
+sub save_makefile_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::save_makefile_file <event_handler>
+    # end wxGlade
+
+    my $makefile = $self->_current_makefile_text();
+    if (!$makefile) {
+        Wx::MessageBox(
+            "Nothing to save yet.
+
+Run 'Find DLLs' first so the Makefile can be generated.",
+            "Save Makefile",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    my $default_dir  = $self->{_proj_root} || '';
+    my $default_name = 'Makefile';
+
+    if ($self->{_makefile_saved_path}) {
+        $default_dir  = File::Basename::dirname($self->{_makefile_saved_path});
+        $default_name = File::Basename::basename($self->{_makefile_saved_path});
+    }
+
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Save Makefile",
+        $default_dir,
+        $default_name,
+        "Makefile (Makefile)|Makefile|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+        Wx::wxFD_SAVE() | Wx::wxFD_OVERWRITE_PROMPT()
+    );
+
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        my $path = $dlg->GetPath;
+
+        if ($self->_write_makefile_file($path, $makefile)) {
+            $self->{_makefile_saved_path} = $path;
+            $self->{_generated_makefile}  = $makefile;
+            $self->_append_io("[makefile] Saved: $path
+");
+            $self->_refresh_run_makefile_button_state();
+            Wx::MessageBox("Saved:
+$path", "Save Makefile", wxOK | wxICON_INFORMATION, $self);
+        } else {
+            Wx::MessageBox("Failed to save:
+$path
+
+$!", "Save Makefile", wxOK | wxICON_ERROR, $self);
+        }
+    }
+
+    $dlg->Destroy;
+}
+
+sub run_makefile_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_makefile_file <event_handler>
+    # end wxGlade
+
+    my $makefile_path = _trim($self->{_makefile_saved_path});
+    if (!$makefile_path) {
+        Wx::MessageBox(
+            "Please click 'Save Makefile' first.",
+            "Run Makefile",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    my $makefile_text = $self->_current_makefile_text();
+    if (!$makefile_text) {
+        Wx::MessageBox(
+            "No Makefile text was found in the output window.",
+            "Run Makefile",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    if (!$self->_write_makefile_file($makefile_path, $makefile_text)) {
+        Wx::MessageBox(
+            "Failed to update the saved Makefile before running.
+
+$!",
+            "Run Makefile",
+            wxOK | wxICON_ERROR,
+            $self
+        );
+        return;
+    }
+
+    my $make_dir = File::Basename::dirname($makefile_path);
+    if (!-d $make_dir) {
+        Wx::MessageBox(
+            "Makefile directory not found:
+$make_dir",
+            "Run Makefile",
+            wxOK | wxICON_ERROR,
+            $self
+        );
+        return;
+    }
+
+    $self->{button_2}->Enable(0) if $self->{button_2};
+    $self->_append_io("
+=== Running Makefile ===
+");
+    $self->_append_io("[makefile] Saved path: $makefile_path
+");
+    $self->_append_io("[makefile] cd $make_dir
+");
+    $self->_append_io("[makefile] gmake all
+
+");
+
+    my $q = $self->{_q};
+
+    threads->create(sub {
+        my ($dir, $qref) = @_;
+
+        my $orig = eval { Cwd::getcwd() } || '';
+        my $exit = 0;
+
+        if (!chdir $dir) {
+            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!
+");
+            $qref->enqueue({ type => 'MAKE_DONE', exit_code => 1 });
+            return;
+        }
+
+        $qref->enqueue("[worker] current directory: $dir
+");
+
+        if (open(my $fh, 'gmake all 2>&1 |')) {
+            while (my $line = <$fh>) {
+                $qref->enqueue($line);
+            }
+            close($fh);
+            $exit = $? >> 8;
+        } else {
+            $qref->enqueue("[worker][error] failed to run gmake all: $!
+");
+            $exit = 127;
+        }
+
+        chdir $orig if $orig;
+
+        $qref->enqueue({ type => 'MAKE_DONE', exit_code => $exit });
+        return;
+    }, $make_dir, $q)->detach();
+}
+
 sub run_pp_autolink {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::run_pp_autolink <event_handler>
@@ -639,8 +820,10 @@ sub run_pp_autolink {
         $self->_seed_iss_fields_from_script();
     }
 
-    $self->{_generated_makefile} = '';
     $self->{button_3}->Enable(0);
+    $self->{_generated_makefile}  = '';
+    $self->{_makefile_saved_path} = '';
+    $self->_refresh_run_makefile_button_state();
     $self->_append_io("\n=== Starting pp_ autolink scan ===\n\n");
 
     my $q = $self->{_q};
@@ -723,16 +906,17 @@ sub run_pp_autolink {
 CBIN    := "$perl_root"
 DIST    := dist
 RELEASE := release
+EXE     := $exe
 
 clean:
-	\@if exist dist\\* del /Q /F dist\\* 2>NUL
-	\@if exist release\\* del /Q /F release\\* 2>NUL
+	\@if exist \$(DIST)\* del /Q /F \$(DIST)\* 2>NUL
+	\@if exist \$(RELEASE)\* del /Q /F \$(RELEASE)\* 2>NUL
 
 all: exe
 
 exe: prepdirs
 	$wxpar
-	\@move /Y $exe dist\\
+	\@move /Y \$(EXE) \$(DIST)\
 
 prepdirs:
 	\@if not exist \$(DIST) mkdir \$(DIST)
