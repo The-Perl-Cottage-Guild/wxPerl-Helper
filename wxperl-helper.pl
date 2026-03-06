@@ -248,6 +248,9 @@ sub new {
     $self->{iss_btn_compile} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Compile");
     $self->{iss_btn_row}->Add($self->{iss_btn_compile}, 0, wxEXPAND|wxLEFT, 6);
     
+    $self->{button_6} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Load .iss");
+    $self->{iss_btn_row}->Add($self->{button_6}, 0, wxEXPAND, 0);
+    
     $self->{iss_left_sizer}->Add(10, 10, 1, wxEXPAND, 0);
     
     $self->{iss_right_sizer} = Wx::BoxSizer->new(wxVERTICAL);
@@ -288,6 +291,7 @@ sub new {
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_generate}->GetId, $self->can('generate_iss_preview'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_save}->GetId, $self->can('save_iss_file'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_compile}->GetId, $self->can('compile_iss_file'));
+    Wx::Event::EVT_BUTTON($self, $self->{button_6}->GetId, $self->can('load_iss_file'));
 
     # end wxGlade
 
@@ -1587,6 +1591,15 @@ sub compile_iss_file {
         $qref->enqueue({ type => 'DONE', exit_code => 0 });
         return;
     }, $q)->detach();
+}
+
+
+sub load_iss_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::load_iss_file <event_handler>
+    warn "Event handler (load_iss_file) not implemented";
+    $event->Skip;
+    # end wxGlade
 }
 
 # end of class MyFrame
