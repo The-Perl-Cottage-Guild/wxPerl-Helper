@@ -9,7 +9,7 @@ This tool is to assist with the creation of distributable Perl applications for 
 - ~~run Makefile~~
 - ~~load Makefile~~
 - ~~generate Makefile (rename 'find DLLs')~~
-- run .exe
+- ~~run .exe~~
 - run Inno Setup Compiler (there's a way to do it commandline, see Makefile)
 - run installer .exe
 - better intergration between tabs, there is some but not 100%
@@ -26,6 +26,7 @@ Click [here](https://wiki.perl-guilds.net/index.php?title=Developing_and_Distrib
 <img width="807" height="610" alt="image" src="https://github.com/user-attachments/assets/513bd295-9237-4ce9-9371-6b7009668098" />
 
 <img width="802" height="610" alt="image" src="https://github.com/user-attachments/assets/711d49d0-bd7f-4de7-9abe-2be199bf4009" />
+
 
 
 
