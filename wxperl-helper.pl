@@ -87,8 +87,8 @@ sub new {
     $self->{button_browse_pl} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Browse\N{U+2026}");
     $self->{sizer_4}->Add($self->{button_browse_pl}, 0, wxEXPAND, 0);
     
-    $self->{button_3} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Find DLLs");
-    $self->{button_3}->SetToolTip("Runs pp_autolink to find the DLLs needed");
+    $self->{button_3} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Generate Makefile");
+    $self->{button_3}->SetToolTip("Runs pp_autolink to find the DLLs needed and generate the Makefile test");
     $self->{sizer_4}->Add($self->{button_3}, 0, wxEXPAND, 0);
     
     $self->{sizer_3} = Wx::BoxSizer->new(wxVERTICAL);
@@ -995,7 +995,6 @@ prepdirs:
 
 EOF
             $qref->enqueue({ type => 'MAKEFILE', text => $makefile });
-            $qref->enqueue("$makefile");
 
             close($fh);
             $exit = $? >> 8;
