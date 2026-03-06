@@ -106,6 +106,10 @@ sub new {
     $self->{button_4} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Load Makefile");
     $self->{sizer_3}->Add($self->{button_4}, 0, wxEXPAND, 0);
     
+    $self->{button_5} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Run EXE");
+    $self->{button_5}->SetToolTip("If activated, this button will attempt to execute the file defined in the loaded Makefile as the EXE variable");
+    $self->{sizer_3}->Add($self->{button_5}, 0, wxEXPAND, 0);
+    
     $self->{sizer_3}->Add(93, 271, 0, 0, 0);
     
     $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
@@ -276,6 +280,7 @@ sub new {
     Wx::Event::EVT_BUTTON($self, $self->{button_1}->GetId, $self->can('save_makefile_file'));
     Wx::Event::EVT_BUTTON($self, $self->{button_2}->GetId, $self->can('run_makefile_file'));
     Wx::Event::EVT_BUTTON($self, $self->{button_4}->GetId, $self->can('load_makefile_file'));
+    Wx::Event::EVT_BUTTON($self, $self->{button_5}->GetId, $self->can('run_exe_file'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_gen_guid}->GetId, $self->can('generate_iss_appid_guid'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_dist}->GetId, $self->can('select_iss_dist_exe'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_outdir}->GetId, $self->can('select_iss_output_dir'));
@@ -300,8 +305,11 @@ sub new {
     $self->{_release_dir}            = '';
     $self->{_generated_makefile}     = '';
     $self->{_makefile_saved_path}    = '';
+    $self->{_makefile_has_run}       = 0;
+    $self->{_last_make_exit_code}    = undef;
 
     $self->{button_2}->Enable(0) if $self->{button_2};
+    $self->{button_5}->Enable(0) if $self->{button_5};
 
     # Background worker comms
     $self->{_q}     = Thread::Queue->new();
@@ -334,6 +342,7 @@ sub new {
     Wx::Event::EVT_TEXT($self, $self->{txt_cmd_io}, sub {
         my ($win, $evt) = @_;
         $win->_refresh_run_makefile_button_state();
+        $win->_reset_run_exe_state();
         $evt->Skip;
     });
 
@@ -364,6 +373,31 @@ sub _append_io {
 
     $self->{txt_cmd_io}->AppendText($text);
     $self->{txt_cmd_io}->ShowPosition($self->{txt_cmd_io}->GetLastPosition);
+}
+
+sub _set_run_exe_button_state {
+    my ($self, $enabled) = @_;
+
+    return unless $self->{button_5};
+
+    $enabled = $enabled ? 1 : 0;
+    $self->{button_5}->Enable($enabled);
+}
+
+sub _reset_run_exe_state {
+    my ($self) = @_;
+
+    $self->{_makefile_has_run}    = 0;
+    $self->{_last_make_exit_code} = undef;
+    $self->_set_run_exe_button_state(0);
+}
+
+sub _mark_makefile_run_complete {
+    my ($self, $exit_code) = @_;
+
+    $self->{_last_make_exit_code} = $exit_code;
+    $self->{_makefile_has_run}    = ($exit_code // 1) == 0 ? 1 : 0;
+    $self->_set_run_exe_button_state($self->{_makefile_has_run});
 }
 
 
@@ -407,6 +441,7 @@ sub _drain_worker_queue {
                 $self->_append_io("
 [make done] exit_code=$msg->{exit_code}
 ");
+                $self->_mark_makefile_run_complete($msg->{exit_code});
                 $self->_refresh_run_makefile_button_state();
                 next;
             }
@@ -637,6 +672,160 @@ sub _write_makefile_file {
 }
 
 
+sub _parse_makefile_vars {
+    my ($self, $text) = @_;
+
+    my %vars;
+    $text //= '';
+
+    for my $line (split /?
+/, $text) {
+        next if $line =~ /^\s*#/;
+        if ($line =~ /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:?=\s*(.*?)\s*$/) {
+            my ($key, $val) = ($1, $2);
+            $val =~ s/^"(.*)"$/$1/;
+            $val =~ s/^'(.*)'$/$1/;
+            $vars{uc $key} = $val;
+        }
+    }
+
+    return \%vars;
+}
+
+sub _resolve_exe_from_makefile {
+    my ($self, $makefile_text) = @_;
+
+    my $vars = $self->_parse_makefile_vars($makefile_text);
+    my $exe  = _trim($vars->{EXE});
+    my $dist = _trim($vars->{DIST});
+
+    return ('', '', 'No EXE variable was found in the loaded Makefile.') if !$exe;
+
+    my $makefile_path = _trim($self->{_makefile_saved_path});
+    return ('', '', 'The Makefile must be saved or loaded from disk before the EXE can be run.') if !$makefile_path;
+
+    my $make_dir = File::Basename::dirname($makefile_path);
+
+    my @candidates;
+    push @candidates, $exe;
+    push @candidates, File::Spec->catfile($dist, $exe) if $dist && $exe !~ m{[\/]} && $exe !~ /^[A-Za-z]:/;
+
+    my %seen;
+    @candidates = grep { !$seen{$_}++ } @candidates;
+
+    for my $candidate (@candidates) {
+        my $path = $candidate;
+
+        if ($path !~ /^[A-Za-z]:/ && $path !~ m{^[\/]}) {
+            $path = File::Spec->catfile($make_dir, $path);
+        }
+
+        return ($path, $exe, '') if -f $path;
+    }
+
+    my $first = $candidates[0];
+    my $first_path = $first;
+    if ($first_path !~ /^[A-Za-z]:/ && $first_path !~ m{^[\/]}) {
+        $first_path = File::Spec->catfile($make_dir, $first_path);
+    }
+
+    return ($first_path, $exe, 'The EXE defined in the Makefile could not be found on disk yet.')
+}
+
+sub run_exe_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_exe_file <event_handler>
+    # end wxGlade
+
+    if (!$self->{_makefile_has_run}) {
+        Wx::MessageBox(
+            "Please run the Makefile successfully before using 'Run EXE'.",
+            "Run EXE",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    my $makefile_text = $self->_current_makefile_text();
+    if (!$makefile_text) {
+        Wx::MessageBox(
+            "No Makefile text is available to inspect.",
+            "Run EXE",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    my ($exe_path, $exe_value, $err) = $self->_resolve_exe_from_makefile($makefile_text);
+    if ($err) {
+        Wx::MessageBox(
+            $err . "
+
+Expected EXE value: " . ($exe_value || '(not found)') . "
+Path checked: " . ($exe_path || '(none)'),
+            "Run EXE",
+            wxOK | wxICON_ERROR,
+            $self
+        );
+        return;
+    }
+
+    my $run_dir = File::Basename::dirname($exe_path);
+
+    $self->_append_io("
+=== Running EXE ===
+");
+    $self->_append_io("[exe] EXE=$exe_value
+");
+    $self->_append_io("[exe] Path=$exe_path
+
+");
+
+    my $q = $self->{_q};
+
+    threads->create(sub {
+        my ($path, $dir, $qref) = @_;
+
+        my $orig = eval { Cwd::getcwd() } || '';
+        my $exit = 0;
+
+        if (!chdir $dir) {
+            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!
+");
+            $qref->enqueue("[exe done] exit_code=1
+");
+            return;
+        }
+
+        $qref->enqueue("[worker] current directory: $dir
+");
+        $qref->enqueue("[worker] starting: $path
+");
+
+        my $cmd = qq{"$path" 2>&1};
+
+        if (open(my $fh, "$cmd |")) {
+            while (my $line = <$fh>) {
+                $qref->enqueue($line);
+            }
+            close($fh);
+            $exit = $? >> 8;
+        } else {
+            $qref->enqueue("[worker][error] failed to run EXE '$path': $!
+");
+            $exit = 127;
+        }
+
+        chdir $orig if $orig;
+
+        $qref->enqueue("[exe done] exit_code=$exit
+");
+        return;
+    }, $exe_path, $run_dir, $q)->detach();
+}
+
 sub load_makefile_file {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::load_makefile_file <event_handler>
@@ -676,6 +865,7 @@ sub load_makefile_file {
             $self->{_generated_makefile}  = $text // '';
             $self->{_makefile_saved_path} = $path;
 
+            $self->_reset_run_exe_state();
             $self->_refresh_run_makefile_button_state();
 
             Wx::MessageBox(
@@ -742,6 +932,7 @@ Run 'Find DLLs' first so the Makefile can be generated.",
         if ($self->_write_makefile_file($path, $makefile)) {
             $self->{_makefile_saved_path} = $path;
             $self->{_generated_makefile}  = $makefile;
+            $self->_reset_run_exe_state();
             $self->_append_io("[makefile] Saved: $path
 ");
             $self->_refresh_run_makefile_button_state();
@@ -810,6 +1001,7 @@ $make_dir",
     }
 
     $self->{button_2}->Enable(0) if $self->{button_2};
+    $self->_reset_run_exe_state();
     $self->_append_io("
 === Running Makefile ===
 ");
@@ -893,6 +1085,7 @@ sub run_pp_autolink {
     $self->{button_3}->Enable(0);
     $self->{_generated_makefile}  = '';
     $self->{_makefile_saved_path} = '';
+    $self->_reset_run_exe_state();
     $self->_refresh_run_makefile_button_state();
     $self->_append_io("\n=== Starting pp_ autolink scan ===\n\n");
 
