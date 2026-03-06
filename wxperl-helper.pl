@@ -94,9 +94,12 @@ sub new {
     $self->{sizer_3} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{sizer_2}->Add($self->{sizer_3}, 1, wxEXPAND, 0);
     
-    $self->{sizer_3}->Add(73, 200, 0, 0, 0);
+    $self->{sizer_3}->Add(93, 200, 0, 0, 0);
     
-    $self->{sizer_3}->Add(73, 271, 0, 0, 0);
+    $self->{button_1} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Save Makefile");
+    $self->{sizer_3}->Add($self->{button_1}, 0, 0, 0);
+    
+    $self->{sizer_3}->Add(93, 271, 0, 0, 0);
     
     $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 1100));
@@ -285,12 +288,16 @@ sub new {
     $self->{_installer_dir}          = '';
     $self->{_dist_dir}               = '';
     $self->{_release_dir}            = '';
+    $self->{_generated_makefile}     = '';
 
     # Background worker comms
     $self->{_q}     = Thread::Queue->new();
     $self->{_timer} = Wx::Timer->new($self, wxID_ANY);
     Wx::Event::EVT_TIMER($self, $self->{_timer}, sub { $self->_drain_worker_queue });
     $self->{_timer}->Start(100); # 100ms poll
+
+    # Save Makefile button (kept in custom code so wxGlade regen won't wipe it)
+    Wx::Event::EVT_BUTTON($self, $self->{button_1}->GetId, $self->can('save_makefile_file'));
 
     # If user types/pastes a valid file into the DLL tab path box,
     # compute project layout and mark ISS as "pending seed".
@@ -343,15 +350,84 @@ sub _append_io {
     $self->{txt_cmd_io}->ShowPosition($self->{txt_cmd_io}->GetLastPosition);
 }
 
+sub _extract_makefile_from_io {
+    my ($self) = @_;
+
+    my $text = $self->{txt_cmd_io}->GetValue // '';
+    return '' if $text eq '';
+
+    if ($text =~ /(# -- BEGIN MAKEFILE --.*?# -- END MAKEFILE --\s*)/s) {
+        return $1;
+    }
+
+    return '';
+}
+
+sub save_makefile_file {
+    my ($self, $event) = @_;
+    # custom handler for Save Makefile button
+
+    my $script = _trim($self->{perl_script_path}->GetValue);
+    if (!$script) {
+        $self->_append_io("[makefile] Not saving (no script selected).\n");
+        return;
+    }
+
+    my $makefile = $self->{_generated_makefile} || $self->_extract_makefile_from_io();
+    if (!$makefile) {
+        Wx::MessageBox(
+            "Nothing to save yet.\n\nRun 'Find DLLs' first so the Makefile can be generated.",
+            "Save Makefile",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    my $default_name = "Makefile";
+
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Save Makefile",
+        "",
+        $default_name,
+        "Makefile (Makefile)|Makefile|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+        Wx::wxFD_SAVE() | Wx::wxFD_OVERWRITE_PROMPT()
+    );
+
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        my $path = $dlg->GetPath;
+
+        if (open(my $fh, ">", $path)) {
+            binmode($fh);
+            print {$fh} $makefile;
+            close($fh);
+
+            $self->_append_io("[makefile] Saved: $path\n");
+            Wx::MessageBox("Saved:\n$path", "Save Makefile", wxOK | wxICON_INFORMATION, $self);
+        } else {
+            Wx::MessageBox("Failed to save:\n$path\n\n$!", "Save Makefile", wxOK | wxICON_ERROR, $self);
+        }
+    }
+
+    $dlg->Destroy;
+}
+
 sub _drain_worker_queue {
     my ($self) = @_;
     my $q = $self->{_q} or return;
 
     while (defined(my $msg = $q->dequeue_nb)) {
-        if (ref($msg) eq 'HASH' && ($msg->{type} // '') eq 'DONE') {
-            $self->_append_io("\n[done] exit_code=$msg->{exit_code}\n");
-            $self->{button_3}->Enable(1);
-            next;
+        if (ref($msg) eq 'HASH') {
+            if (($msg->{type} // '') eq 'DONE') {
+                $self->_append_io("\n[done] exit_code=$msg->{exit_code}\n");
+                $self->{button_3}->Enable(1);
+                next;
+            }
+            if (($msg->{type} // '') eq 'MAKEFILE') {
+                $self->{_generated_makefile} = $msg->{text} // '';
+                next;
+            }
         }
         $self->_append_io($msg);
     }
@@ -563,6 +639,7 @@ sub run_pp_autolink {
         $self->_seed_iss_fields_from_script();
     }
 
+    $self->{_generated_makefile} = '';
     $self->{button_3}->Enable(0);
     $self->_append_io("\n=== Starting pp_ autolink scan ===\n\n");
 
@@ -663,6 +740,7 @@ prepdirs:
 # -- END MAKEFILE --
 
 EOF
+            $qref->enqueue({ type => 'MAKEFILE', text => $makefile });
             $qref->enqueue("$makefile");
 
             close($fh);
