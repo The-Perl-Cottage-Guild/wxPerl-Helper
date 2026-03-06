@@ -97,12 +97,16 @@ sub new {
     $self->{sizer_3}->Add(93, 200, 0, 0, 0);
     
     $self->{button_1} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Save Makefile");
-    $self->{sizer_3}->Add($self->{button_1}, 0, 0, 0);
+    $self->{sizer_3}->Add($self->{button_1}, 0, wxEXPAND, 0);
     
     $self->{button_2} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Run Makefile");
-    $self->{sizer_3}->Add($self->{button_2}, 0, wxTOP, 6);
+    $self->{button_2}->SetMinSize(Wx::Size->new(90, 23));
+    $self->{sizer_3}->Add($self->{button_2}, 0, wxEXPAND, 0);
     
-    $self->{sizer_3}->Add(93, 238, 0, 0, 0);
+    $self->{button_4} = Wx::Button->new($self->{notebook_1_pane_1}, wxID_ANY, "Load Makefile");
+    $self->{sizer_3}->Add($self->{button_4}, 0, wxEXPAND, 0);
+    
+    $self->{sizer_3}->Add(93, 271, 0, 0, 0);
     
     $self->{txt_cmd_io} = Wx::TextCtrl->new($self->{notebook_1_pane_1}, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_BESTWRAP|wxTE_MULTILINE|wxTE_RICH2);
     $self->{txt_cmd_io}->SetMinSize(Wx::Size->new(800, 1100));
@@ -271,6 +275,7 @@ sub new {
     Wx::Event::EVT_BUTTON($self, $self->{button_3}->GetId, $self->can('run_pp_autolink'));
     Wx::Event::EVT_BUTTON($self, $self->{button_1}->GetId, $self->can('save_makefile_file'));
     Wx::Event::EVT_BUTTON($self, $self->{button_2}->GetId, $self->can('run_makefile_file'));
+    Wx::Event::EVT_BUTTON($self, $self->{button_4}->GetId, $self->can('load_makefile_file'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_gen_guid}->GetId, $self->can('generate_iss_appid_guid'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_dist}->GetId, $self->can('select_iss_dist_exe'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_outdir}->GetId, $self->can('select_iss_output_dir'));
@@ -631,6 +636,71 @@ sub _write_makefile_file {
     return 0;
 }
 
+
+sub load_makefile_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::load_makefile_file <event_handler>
+    # end wxGlade
+
+    my $default_dir  = $self->{_proj_root} || '';
+    my $default_name = 'Makefile';
+
+    if ($self->{_makefile_saved_path}) {
+        $default_dir  = File::Basename::dirname($self->{_makefile_saved_path});
+        $default_name = File::Basename::basename($self->{_makefile_saved_path});
+    }
+
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Load Makefile",
+        $default_dir,
+        $default_name,
+        "Makefile (Makefile)|Makefile|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+        Wx::wxFD_OPEN() | Wx::wxFD_FILE_MUST_EXIST()
+    );
+
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        my $path = $dlg->GetPath;
+        my $text = '';
+
+        if (open(my $fh, '<', $path)) {
+            local $/;
+            binmode($fh);
+            $text = <$fh>;
+            close($fh);
+
+            $self->{txt_cmd_io}->SetValue($text // '');
+            $self->{txt_cmd_io}->SetInsertionPoint(0);
+            $self->{txt_cmd_io}->ShowPosition(0);
+
+            $self->{_generated_makefile}  = $text // '';
+            $self->{_makefile_saved_path} = $path;
+
+            $self->_refresh_run_makefile_button_state();
+
+            Wx::MessageBox(
+                "Loaded:
+$path",
+                "Load Makefile",
+                wxOK | wxICON_INFORMATION,
+                $self
+            );
+        } else {
+            Wx::MessageBox(
+                "Failed to load:
+$path
+
+$!",
+                "Load Makefile",
+                wxOK | wxICON_ERROR,
+                $self
+            );
+        }
+    }
+
+    $dlg->Destroy;
+}
+
 sub save_makefile_file {
     my ($self, $event) = @_;
     # wxGlade: MyFrame::save_makefile_file <event_handler>
@@ -887,7 +957,7 @@ sub run_pp_autolink {
 
             $qref->enqueue("\n=== Perl moduled DLLs to include ===\n\n");
 
-            my $wxpar = "wxpar -o $exe";
+            my $wxpar = 'wxpar -o $(EXE)';
             foreach my $lib (@filtered_libs) {
                 $wxpar .= " --link $lib ";
                 $qref->enqueue("$lib\n");
