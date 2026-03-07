@@ -218,6 +218,18 @@ sub new {
     $self->{iss_install_scope}->SetSelection(0);
     $self->{iss_form_grid}->Add($self->{iss_install_scope}, 1, wxEXPAND, 0);
     
+    my $label_2 = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "ISS EXE");
+    $self->{iss_form_grid}->Add($label_2, 0, 0, 0);
+    
+    $self->{iss_icon_row_copy} = Wx::BoxSizer->new(wxHORIZONTAL);
+    $self->{iss_form_grid}->Add($self->{iss_icon_row_copy}, 1, wxEXPAND, 0);
+    
+    $self->{text_iss_exe} = Wx::TextCtrl->new($self->{notebook_1_pane_3}, wxID_ANY, "%LOCALAPPDATA%\\Programs\\Inno Setup 6\\ISCC.exe");
+    $self->{iss_icon_row_copy}->Add($self->{text_iss_exe}, 1, wxEXPAND, 0);
+    
+    $self->{iss_btn_browse_exe} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Browse\N{U+2026}");
+    $self->{iss_icon_row_copy}->Add($self->{iss_btn_browse_exe}, 0, wxEXPAND|wxLEFT, 6);
+    
     my $iss_lbl_options = Wx::StaticText->new($self->{notebook_1_pane_3}, wxID_ANY, "Options");
     $self->{iss_left_sizer}->Add($iss_lbl_options, 0, wxEXPAND|wxTOP, 8);
     
@@ -237,9 +249,9 @@ sub new {
     $self->{iss_opt_sizer}->Add($self->{iss_chk_kill_running}, 0, wxEXPAND, 0);
     
     $self->{iss_btn_row} = Wx::BoxSizer->new(wxHORIZONTAL);
-    $self->{iss_left_sizer}->Add($self->{iss_btn_row}, 0, wxEXPAND|wxTOP, 10);
+    $self->{iss_left_sizer}->Add($self->{iss_btn_row}, 0, wxEXPAND, 10);
     
-    $self->{iss_btn_generate} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Generate Preview");
+    $self->{iss_btn_generate} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Update Preview");
     $self->{iss_btn_row}->Add($self->{iss_btn_generate}, 1, wxEXPAND, 0);
     
     $self->{iss_btn_save} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Save .iss\N{U+2026}");
@@ -250,6 +262,9 @@ sub new {
     
     $self->{button_6} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Load .iss");
     $self->{iss_btn_row}->Add($self->{button_6}, 0, wxEXPAND, 0);
+    
+    $self->{button_7} = Wx::Button->new($self->{notebook_1_pane_3}, wxID_ANY, "Run Installer");
+    $self->{iss_btn_row}->Add($self->{button_7}, 0, wxEXPAND, 0);
     
     $self->{iss_left_sizer}->Add(10, 10, 1, wxEXPAND, 0);
     
@@ -288,10 +303,12 @@ sub new {
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_dist}->GetId, $self->can('select_iss_dist_exe'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_outdir}->GetId, $self->can('select_iss_output_dir'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_icon}->GetId, $self->can('select_iss_icon_file'));
+    Wx::Event::EVT_BUTTON($self, $self->{iss_btn_browse_exe}->GetId, $self->can('select_iss_exe'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_generate}->GetId, $self->can('generate_iss_preview'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_save}->GetId, $self->can('save_iss_file'));
     Wx::Event::EVT_BUTTON($self, $self->{iss_btn_compile}->GetId, $self->can('compile_iss_file'));
     Wx::Event::EVT_BUTTON($self, $self->{button_6}->GetId, $self->can('load_iss_file'));
+    Wx::Event::EVT_BUTTON($self, $self->{button_7}->GetId, $self->can('run_app_installer'));
 
     # end wxGlade
 
@@ -311,6 +328,11 @@ sub new {
     $self->{_makefile_saved_path}    = '';
     $self->{_makefile_has_run}       = 0;
     $self->{_last_make_exit_code}    = undef;
+
+    $self->{_iss_saved_path}         = '';
+    $self->{_iss_last_installer_path}= '';
+    $self->{_iss_has_compiled}       = 0;
+    $self->{_iss_last_compile_exit}  = undef;
 
     $self->{button_2}->Enable(0) if $self->{button_2};
     $self->{button_5}->Enable(0) if $self->{button_5};
@@ -404,6 +426,11 @@ sub _mark_makefile_run_complete {
     $self->_set_run_exe_button_state($self->{_makefile_has_run});
 }
 
+sub _mark_iss_compile_complete {
+    my ($self, $exit_code) = @_;
+    $self->{_iss_last_compile_exit} = $exit_code;
+    $self->{_iss_has_compiled}      = ($exit_code // 1) == 0 ? 1 : 0;
+}
 
 sub _refresh_run_makefile_button_state {
     my ($self) = @_;
@@ -434,17 +461,13 @@ sub _drain_worker_queue {
     while (defined(my $msg = $q->dequeue_nb)) {
         if (ref($msg) eq 'HASH') {
             if (($msg->{type} // '') eq 'DONE') {
-                $self->_append_io("
-[done] exit_code=$msg->{exit_code}
-");
+                $self->_append_io("\n[done] exit_code=$msg->{exit_code}\n");
                 $self->{button_3}->Enable(1);
                 $self->_refresh_run_makefile_button_state();
                 next;
             }
             if (($msg->{type} // '') eq 'MAKE_DONE') {
-                $self->_append_io("
-[make done] exit_code=$msg->{exit_code}
-");
+                $self->_append_io("\n[make done] exit_code=$msg->{exit_code}\n");
                 $self->_mark_makefile_run_complete($msg->{exit_code});
                 $self->_refresh_run_makefile_button_state();
                 next;
@@ -455,7 +478,32 @@ sub _drain_worker_queue {
                 $self->_refresh_run_makefile_button_state();
                 next;
             }
+            if (($msg->{type} // '') eq 'ISS_COMPILE_BEGIN') {
+                $self->{iss_preview}->Clear;
+                $self->{iss_preview}->SetValue($msg->{text} // '');
+                $self->{iss_preview}->ShowPosition($self->{iss_preview}->GetLastPosition);
+                next;
+            }
+            if (($msg->{type} // '') eq 'ISS_COMPILE_LINE') {
+                $self->{iss_preview}->AppendText($msg->{text} // '');
+                $self->{iss_preview}->ShowPosition($self->{iss_preview}->GetLastPosition);
+                next;
+            }
+            if (($msg->{type} // '') eq 'ISS_COMPILE_DONE') {
+                $self->{iss_preview}->AppendText("\n[iss compile done] exit_code=$msg->{exit_code}\n");
+                $self->{iss_preview}->ShowPosition($self->{iss_preview}->GetLastPosition);
+
+                $self->_append_io("\n[iss compile done] exit_code=$msg->{exit_code}\n");
+                $self->_mark_iss_compile_complete($msg->{exit_code});
+
+                if (($msg->{exit_code} // 1) == 0 && ($msg->{installer_path} // '')) {
+                    $self->{_iss_last_installer_path} = $msg->{installer_path};
+                    $self->_append_io("[iss] installer=$msg->{installer_path}\n");
+                }
+                next;
+            }
         }
+
         $self->_append_io($msg);
     }
 }
@@ -524,6 +572,21 @@ sub _normalize_appid {
     return '{{' . $appid . '}}';
 }
 
+sub _expand_env_vars_windows {
+    my ($value) = @_;
+    $value = _trim($value);
+    return '' if $value eq '';
+
+    $value =~ s/%([^%]+)%/
+        exists $ENV{$1} ? $ENV{$1}
+      : exists $ENV{uc $1} ? $ENV{uc $1}
+      : exists $ENV{lc $1} ? $ENV{lc $1}
+      : "%$1%"
+    /gex;
+
+    return $value;
+}
+
 sub _compute_project_layout_from_script {
     my ($self, $script_path) = @_;
 
@@ -551,27 +614,23 @@ sub _seed_iss_fields_from_script {
     my $release_dir   = $self->{_release_dir}   || File::Spec->catdir($proj_root, 'release');
 
     my $base = File::Basename::basename($script_abs);
-    $base =~ s/\.(pl|pm)$//i; # if no extension, leaves as-is
+    $base =~ s/\.(pl|pm)$//i;
 
     my $exe_name = $base . ".exe";
     my $out_base = $base . "-setup";
 
-    # Seed EXE/output base (don't keep clobbering if user edits later)
     if (!$self->{_iss_seeded_from_script}) {
         $self->{iss_app_exe}->SetValue($exe_name);
         $self->{iss_output_base}->SetValue($out_base);
     }
 
-    # dist exe relative to installer/
     my $dist_exe_abs = File::Spec->catfile($dist_dir, $exe_name);
     my $dist_exe_rel = _abs2rel_if_possible($installer_dir, $dist_exe_abs);
     $self->{iss_dist_exe_path}->SetValue($dist_exe_rel);
 
-    # output dir relative to installer/
     my $out_rel = _abs2rel_if_possible($installer_dir, $release_dir);
     $self->{iss_output_dir}->SetValue($out_rel);
 
-    # icon path (if already set) relative to installer/
     my $icon = _trim($self->{iss_icon_path}->GetValue);
     if ($icon) {
         my $icon_rel = _abs2rel_if_possible($installer_dir, $icon);
@@ -582,25 +641,211 @@ sub _seed_iss_fields_from_script {
     $self->{_iss_pending_seed}       = 0;
 }
 
+sub _set_preview_text {
+    my ($self, $text) = @_;
+    $self->{iss_preview}->Clear;
+    $self->{iss_preview}->SetValue($text // '');
+    $self->{iss_preview}->SetInsertionPoint(0);
+    $self->{iss_preview}->ShowPosition(0);
+}
+
+sub _iss_preview_text {
+    my ($self) = @_;
+    return $self->{iss_preview}->GetValue // '';
+}
+
+sub _write_text_file {
+    my ($self, $path, $text) = @_;
+    return 0 if !_trim($path);
+
+    if (open(my $fh, '>', $path)) {
+        binmode($fh);
+        print {$fh} ($text // '');
+        close($fh);
+        return 1;
+    }
+    return 0;
+}
+
+sub _read_text_file {
+    my ($self, $path) = @_;
+    return '' if !_trim($path);
+
+    if (open(my $fh, '<', $path)) {
+        local $/;
+        binmode($fh);
+        my $text = <$fh>;
+        close($fh);
+        return $text // '';
+    }
+
+    return '';
+}
+
+sub _save_iss_to_path {
+    my ($self, $path) = @_;
+    my $text = $self->_iss_preview_text();
+    return 0 if !$text;
+    return 0 if !_trim($path);
+
+    if ($self->_write_text_file($path, $text)) {
+        $self->{_iss_saved_path} = $path;
+        return 1;
+    }
+
+    return 0;
+}
+
+sub _ensure_iss_path_for_save {
+    my ($self) = @_;
+
+    my $path = _trim($self->{_iss_saved_path});
+    return $path if $path;
+
+    my $default_dir  = $self->{_installer_dir} || $self->{_proj_root} || '';
+    my $default_name = 'installer.iss';
+
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Save Inno Setup Script",
+        $default_dir,
+        $default_name,
+        "Inno Setup Script (*.iss)|*.iss|All files (*.*)|*.*",
+        Wx::wxFD_SAVE() | Wx::wxFD_OVERWRITE_PROMPT()
+    );
+
+    my $chosen = '';
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        $chosen = $dlg->GetPath;
+    }
+    $dlg->Destroy;
+
+    if ($chosen) {
+        $self->{_iss_saved_path} = $chosen;
+        return $chosen;
+    }
+
+    return '';
+}
+
+sub _resolve_path_from_base {
+    my ($base_dir, $value) = @_;
+    $value = _trim($value);
+    return '' if $value eq '';
+
+    $value = _expand_env_vars_windows($value);
+
+    if ($value =~ /^[A-Za-z]:[\\\/]/ || $value =~ m{^[\\\/]{2}}) {
+        return $value;
+    }
+
+    if ($base_dir) {
+        return File::Spec->catfile($base_dir, $value);
+    }
+
+    return $value;
+}
+
+sub _compute_expected_installer_path {
+    my ($self, $iss_path) = @_;
+
+    $iss_path = _trim($iss_path);
+    return '' if !$iss_path;
+
+    my $iss_dir = File::Basename::dirname($iss_path);
+    my $outdir  = _trim($self->{iss_output_dir}->GetValue);
+    my $base    = _trim($self->{iss_output_base}->GetValue);
+
+    return '' if !$base;
+
+    my $resolved_outdir = _resolve_path_from_base($iss_dir, $outdir);
+    return '' if !$resolved_outdir;
+
+    my $installer = File::Spec->catfile($resolved_outdir, $base . '.exe');
+    return $installer;
+}
+
+sub _parse_bool_from_iss {
+    my ($text, $regex) = @_;
+    return $text =~ $regex ? 1 : 0;
+}
+
+sub _load_iss_into_form {
+    my ($self, $text, $path) = @_;
+
+    my %vals;
+
+    if ($text =~ /^\s*#define\s+MyAppName\s+"([^"]*)"/mi) {
+        $vals{app_name} = $1;
+    }
+    if ($text =~ /^\s*#define\s+MyAppExe\s+"([^"]*)"/mi) {
+        $vals{app_exe} = $1;
+    }
+    if ($text =~ /^\s*#define\s+MyAppVersion\s+"([^"]*)"/mi) {
+        $vals{app_version} = $1;
+    }
+    if ($text =~ /^\s*#define\s+MyAppPublisher\s+"([^"]*)"/mi) {
+        $vals{app_publisher} = $1;
+    }
+    if ($text =~ /^\s*AppId\s*=\s*(.+?)\s*$/mi) {
+        $vals{appid} = _trim($1);
+    }
+    if ($text =~ /^\s*OutputDir\s*=\s*(.+?)\s*$/mi) {
+        $vals{output_dir} = _trim($1);
+    }
+    if ($text =~ /^\s*OutputBaseFilename\s*=\s*(.+?)\s*$/mi) {
+        $vals{output_base} = _trim($1);
+    }
+    if ($text =~ /^\s*SetupIconFile\s*=\s*(.+?)\s*$/mi) {
+        $vals{icon_path} = _trim($1);
+    }
+    if ($text =~ /^\s*Source:\s*"([^"]+)"\s*;\s*DestDir:\s*"\{app\}"/mi) {
+        $vals{dist_exe_path} = $1;
+    }
+
+    my $per_user = ($text =~ /^\s*PrivilegesRequired\s*=\s*lowest\s*$/mi) ? 1 : 0;
+    my $desktop  = _parse_bool_from_iss($text, qr/^\s*Name:\s*"desktopicon"\s*;/mi);
+    my $launch   = _parse_bool_from_iss($text, qr/^\s*Filename:\s*"\{app\}\\\{#MyAppExe\}"\s*;\s*Description:\s*"Launch/mis);
+    my $kill     = _parse_bool_from_iss($text, qr/taskkill\s+\/IM\s+"\{#MyAppExe\}"/mis);
+
+    $self->{iss_app_name}->SetValue($vals{app_name})             if exists $vals{app_name};
+    $self->{iss_app_exe}->SetValue($vals{app_exe})               if exists $vals{app_exe};
+    $self->{iss_app_version}->SetValue($vals{app_version})       if exists $vals{app_version};
+    $self->{iss_app_publisher}->SetValue($vals{app_publisher})   if exists $vals{app_publisher};
+    $self->{iss_appid}->SetValue($vals{appid})                   if exists $vals{appid};
+    $self->{iss_output_dir}->SetValue($vals{output_dir})         if exists $vals{output_dir};
+    $self->{iss_output_base}->SetValue($vals{output_base})       if exists $vals{output_base};
+    $self->{iss_icon_path}->SetValue($vals{icon_path})           if exists $vals{icon_path};
+    $self->{iss_dist_exe_path}->SetValue($vals{dist_exe_path})   if exists $vals{dist_exe_path};
+
+    $self->{iss_install_scope}->SetSelection($per_user ? 0 : 1);
+    $self->{iss_chk_desktop_icon}->SetValue($desktop ? 1 : 0);
+    $self->{iss_chk_launch}->SetValue($launch ? 1 : 0);
+    $self->{iss_chk_kill_running}->SetValue($kill ? 1 : 0);
+
+    if (_trim($path)) {
+        $self->{_iss_saved_path} = $path;
+        my $iss_dir = File::Basename::dirname($path);
+
+        if (-d $iss_dir) {
+            $self->{_installer_dir} = $iss_dir;
+        }
+    }
+}
+
 sub DoQuit {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::DoQuit <event_handler>
-    # end wxGlade
     $self->Close;
 }
 
 sub show_license_dialog {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::show_license_dialog <event_handler>
     warn "Event handler (show_license_dialog) not implemented";
     $event->Skip;
-    # end wxGlade
 }
 
 sub select_perl_script {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::select_perl_script <event_handler>
-    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -621,7 +866,6 @@ sub select_perl_script {
         $self->{perl_script_path}->SetValue($path);
         $self->_append_io("Selected: $path\n");
 
-        # compute, then mark pending seed (do not touch ISS unless active)
         $self->_compute_project_layout_from_script($path);
         $self->{_iss_pending_seed} = 1;
 
@@ -633,7 +877,6 @@ sub select_perl_script {
 
     $dlg->Destroy;
 }
-
 
 sub _extract_makefile_from_text {
     my ($self, $text) = @_;
@@ -675,15 +918,13 @@ sub _write_makefile_file {
     return 0;
 }
 
-
 sub _parse_makefile_vars {
     my ($self, $text) = @_;
 
     my %vars;
     $text //= '';
 
-    for my $line (split /?
-/, $text) {
+    for my $line (split /\r?\n/, $text) {
         next if $line =~ /^\s*#/;
         if ($line =~ /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:?=\s*(.*?)\s*$/) {
             my ($key, $val) = ($1, $2);
@@ -733,13 +974,11 @@ sub _resolve_exe_from_makefile {
         $first_path = File::Spec->catfile($make_dir, $first_path);
     }
 
-    return ($first_path, $exe, 'The EXE defined in the Makefile could not be found on disk yet.')
+    return ($first_path, $exe, 'The EXE defined in the Makefile could not be found on disk yet.');
 }
 
 sub run_exe_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::run_exe_file <event_handler>
-    # end wxGlade
 
     if (!$self->{_makefile_has_run}) {
         Wx::MessageBox(
@@ -765,10 +1004,7 @@ sub run_exe_file {
     my ($exe_path, $exe_value, $err) = $self->_resolve_exe_from_makefile($makefile_text);
     if ($err) {
         Wx::MessageBox(
-            $err . "
-
-Expected EXE value: " . ($exe_value || '(not found)') . "
-Path checked: " . ($exe_path || '(none)'),
+            $err . "\n\nExpected EXE value: " . ($exe_value || '(not found)') . "\nPath checked: " . ($exe_path || '(none)'),
             "Run EXE",
             wxOK | wxICON_ERROR,
             $self
@@ -778,14 +1014,9 @@ Path checked: " . ($exe_path || '(none)'),
 
     my $run_dir = File::Basename::dirname($exe_path);
 
-    $self->_append_io("
-=== Running EXE ===
-");
-    $self->_append_io("[exe] EXE=$exe_value
-");
-    $self->_append_io("[exe] Path=$exe_path
-
-");
+    $self->_append_io("\n=== Running EXE ===\n");
+    $self->_append_io("[exe] EXE=$exe_value\n");
+    $self->_append_io("[exe] Path=$exe_path\n\n");
 
     my $q = $self->{_q};
 
@@ -796,17 +1027,13 @@ Path checked: " . ($exe_path || '(none)'),
         my $exit = 0;
 
         if (!chdir $dir) {
-            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!
-");
-            $qref->enqueue("[exe done] exit_code=1
-");
+            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!\n");
+            $qref->enqueue("[exe done] exit_code=1\n");
             return;
         }
 
-        $qref->enqueue("[worker] current directory: $dir
-");
-        $qref->enqueue("[worker] starting: $path
-");
+        $qref->enqueue("[worker] current directory: $dir\n");
+        $qref->enqueue("[worker] starting: $path\n");
 
         my $cmd = qq{"$path" 2>&1};
 
@@ -817,23 +1044,19 @@ Path checked: " . ($exe_path || '(none)'),
             close($fh);
             $exit = $? >> 8;
         } else {
-            $qref->enqueue("[worker][error] failed to run EXE '$path': $!
-");
+            $qref->enqueue("[worker][error] failed to run EXE '$path': $!\n");
             $exit = 127;
         }
 
         chdir $orig if $orig;
 
-        $qref->enqueue("[exe done] exit_code=$exit
-");
+        $qref->enqueue("[exe done] exit_code=$exit\n");
         return;
     }, $exe_path, $run_dir, $q)->detach();
 }
 
 sub load_makefile_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::load_makefile_file <event_handler>
-    # end wxGlade
 
     my $default_dir  = $self->{_proj_root} || '';
     my $default_name = 'Makefile';
@@ -873,18 +1096,14 @@ sub load_makefile_file {
             $self->_refresh_run_makefile_button_state();
 
             Wx::MessageBox(
-                "Loaded:
-$path",
+                "Loaded:\n$path",
                 "Load Makefile",
                 wxOK | wxICON_INFORMATION,
                 $self
             );
         } else {
             Wx::MessageBox(
-                "Failed to load:
-$path
-
-$!",
+                "Failed to load:\n$path\n\n$!",
                 "Load Makefile",
                 wxOK | wxICON_ERROR,
                 $self
@@ -897,15 +1116,11 @@ $!",
 
 sub save_makefile_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::save_makefile_file <event_handler>
-    # end wxGlade
 
     my $makefile = $self->_current_makefile_text();
     if (!$makefile) {
         Wx::MessageBox(
-            "Nothing to save yet.
-
-Run 'Find DLLs' first so the Makefile can be generated.",
+            "Nothing to save yet.\n\nRun 'Find DLLs' first so the Makefile can be generated.",
             "Save Makefile",
             wxOK | wxICON_INFORMATION,
             $self
@@ -937,16 +1152,11 @@ Run 'Find DLLs' first so the Makefile can be generated.",
             $self->{_makefile_saved_path} = $path;
             $self->{_generated_makefile}  = $makefile;
             $self->_reset_run_exe_state();
-            $self->_append_io("[makefile] Saved: $path
-");
+            $self->_append_io("[makefile] Saved: $path\n");
             $self->_refresh_run_makefile_button_state();
-            Wx::MessageBox("Saved:
-$path", "Save Makefile", wxOK | wxICON_INFORMATION, $self);
+            Wx::MessageBox("Saved:\n$path", "Save Makefile", wxOK | wxICON_INFORMATION, $self);
         } else {
-            Wx::MessageBox("Failed to save:
-$path
-
-$!", "Save Makefile", wxOK | wxICON_ERROR, $self);
+            Wx::MessageBox("Failed to save:\n$path\n\n$!", "Save Makefile", wxOK | wxICON_ERROR, $self);
         }
     }
 
@@ -955,8 +1165,6 @@ $!", "Save Makefile", wxOK | wxICON_ERROR, $self);
 
 sub run_makefile_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::run_makefile_file <event_handler>
-    # end wxGlade
 
     my $makefile_path = _trim($self->{_makefile_saved_path});
     if (!$makefile_path) {
@@ -982,9 +1190,7 @@ sub run_makefile_file {
 
     if (!$self->_write_makefile_file($makefile_path, $makefile_text)) {
         Wx::MessageBox(
-            "Failed to update the saved Makefile before running.
-
-$!",
+            "Failed to update the saved Makefile before running.\n\n$!",
             "Run Makefile",
             wxOK | wxICON_ERROR,
             $self
@@ -995,8 +1201,7 @@ $!",
     my $make_dir = File::Basename::dirname($makefile_path);
     if (!-d $make_dir) {
         Wx::MessageBox(
-            "Makefile directory not found:
-$make_dir",
+            "Makefile directory not found:\n$make_dir",
             "Run Makefile",
             wxOK | wxICON_ERROR,
             $self
@@ -1006,16 +1211,10 @@ $make_dir",
 
     $self->{button_2}->Enable(0) if $self->{button_2};
     $self->_reset_run_exe_state();
-    $self->_append_io("
-=== Running Makefile ===
-");
-    $self->_append_io("[makefile] Saved path: $makefile_path
-");
-    $self->_append_io("[makefile] cd $make_dir
-");
-    $self->_append_io("[makefile] gmake all
-
-");
+    $self->_append_io("\n=== Running Makefile ===\n");
+    $self->_append_io("[makefile] Saved path: $makefile_path\n");
+    $self->_append_io("[makefile] cd $make_dir\n");
+    $self->_append_io("[makefile] gmake all\n\n");
 
     my $q = $self->{_q};
 
@@ -1026,14 +1225,12 @@ $make_dir",
         my $exit = 0;
 
         if (!chdir $dir) {
-            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!
-");
+            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!\n");
             $qref->enqueue({ type => 'MAKE_DONE', exit_code => 1 });
             return;
         }
 
-        $qref->enqueue("[worker] current directory: $dir
-");
+        $qref->enqueue("[worker] current directory: $dir\n");
 
         if (open(my $fh, 'gmake all 2>&1 |')) {
             while (my $line = <$fh>) {
@@ -1042,8 +1239,7 @@ $make_dir",
             close($fh);
             $exit = $? >> 8;
         } else {
-            $qref->enqueue("[worker][error] failed to run gmake all: $!
-");
+            $qref->enqueue("[worker][error] failed to run gmake all: $!\n");
             $exit = 127;
         }
 
@@ -1056,8 +1252,6 @@ $make_dir",
 
 sub run_pp_autolink {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::run_pp_autolink <event_handler>
-    # end wxGlade
 
     my $script = $self->{perl_script_path}->GetValue // '';
     $script =~ s/^\s+|\s+$//g;
@@ -1077,8 +1271,6 @@ sub run_pp_autolink {
 
     $script = Cwd::abs_path($script) || $script;
 
-    # Seed ISS from *this* path too (recommended).
-    # Do NOT touch ISS controls unless tab is active; otherwise mark pending.
     $self->_compute_project_layout_from_script($script);
     $self->{_iss_pending_seed} = 1;
     my $cur = $self->{notebook_1}->GetSelection;
@@ -1100,7 +1292,6 @@ sub run_pp_autolink {
 
         $qref->enqueue("[worker] thread started\n\n");
 
-        # Check pp is runnable
         my $pp_ver = `pp --version 2>&1`;
         my $pp_rc  = $? >> 8;
         $qref->enqueue("[worker] pp --version rc=$pp_rc\n$pp_ver");
@@ -1135,14 +1326,13 @@ sub run_pp_autolink {
                 }
             }
 
-            my $perl_path = $^X;  # full path to running perl.exe
+            my $perl_path = $^X;
 
             my ($volume, $dirs, $file) = File::Spec->splitpath($perl_path);
             my @parts = File::Spec->splitdir($dirs);
 
-            # Remove \perl\bin\
-            pop @parts;   # bin
-            pop @parts;   # perl
+            pop @parts;
+            pop @parts;
             pop @parts;
             push @parts, "c", "bin";
 
@@ -1208,16 +1398,12 @@ EOF
 
 sub generate_iss_appid_guid {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::generate_iss_appid_guid <event_handler>
-    # end wxGlade
     my $guid = _new_guid_upper();
     $self->{iss_appid}->SetValue('{{' . $guid . '}}');
 }
 
 sub select_iss_dist_exe {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::select_iss_dist_exe <event_handler>
-    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -1240,8 +1426,6 @@ sub select_iss_dist_exe {
 
 sub select_iss_output_dir {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::select_iss_output_dir <event_handler>
-    # end wxGlade
 
     my $dlg = Wx::DirDialog->new(
         $self,
@@ -1263,8 +1447,6 @@ sub select_iss_output_dir {
 
 sub select_iss_icon_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::select_iss_icon_file <event_handler>
-    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -1277,7 +1459,6 @@ sub select_iss_icon_file {
     if ($dlg->ShowModal == Wx::wxID_OK()) {
         my $p = $dlg->GetPath;
 
-        # IMPORTANT: never put this into a regex (fixes \U/\u/\i crashes)
         if ($self->{_installer_dir}) {
             $p = _abs2rel_if_possible($self->{_installer_dir}, $p);
         }
@@ -1285,18 +1466,6 @@ sub select_iss_icon_file {
     }
 
     $dlg->Destroy;
-}
-
-sub _set_preview_text {
-    my ($self, $text) = @_;
-
-    # Requirement:
-    # 1) clear old contents on regeneration
-    # 2) jump to top when completed
-    $self->{iss_preview}->Clear;
-    $self->{iss_preview}->SetValue($text // '');
-    $self->{iss_preview}->SetInsertionPoint(0);
-    $self->{iss_preview}->ShowPosition(0);
 }
 
 sub _collect_iss_values {
@@ -1342,10 +1511,7 @@ sub _collect_iss_values {
 
 sub generate_iss_preview {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::generate_iss_preview <event_handler>
-    # end wxGlade
 
-    # Do not update ISS unless it's in focus AND a file is selected
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
         $self->_append_io("[iss] Not generating preview (ISS tab not active).\n");
@@ -1358,7 +1524,6 @@ sub generate_iss_preview {
         return;
     }
 
-    # If pending, seed now (tab is active)
     if ($self->{_iss_pending_seed}) {
         $self->_seed_iss_fields_from_script();
     }
@@ -1385,7 +1550,7 @@ sub generate_iss_preview {
         ? "PrivilegesRequired=lowest\nPrivilegesRequiredOverridesAllowed=commandline"
         : "PrivilegesRequired=admin";
 
-    my $setup_icon_line     = $icon_path ? "SetupIconFile=$icon_path" : '';
+    my $setup_icon_line = $icon_path ? "SetupIconFile=$icon_path" : '';
 
     my $tasks_block = '';
     if ($desktop_icon) {
@@ -1478,7 +1643,6 @@ $tasks_block
 ; Start Menu shortcut
 ISS2
 
-    # Build IconFilename parameter safely (no regex)
     my $icon_param = '';
     if (defined($icon_path) && length($icon_path)) {
         $icon_param = qq{; IconFilename: "$icon_path"};
@@ -1496,7 +1660,6 @@ Name: "{userprograms}\\{#MyAppName}\\Uninstall {#MyAppName}"; Filename: "{uninst
 ISS3
 
     if ($desktop_icon) {
-        # Build IconFilename parameter safely (no regex)
         my $icon_param = '';
         if (defined($icon_path) && length($icon_path)) {
             $icon_param = qq{; IconFilename: "$icon_path"};
@@ -1519,8 +1682,6 @@ ISS3
 
 sub save_iss_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::save_iss_file <event_handler>
-    # end wxGlade
 
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
@@ -1541,11 +1702,18 @@ sub save_iss_file {
         return;
     }
 
+    my $default_dir  = $self->{_iss_saved_path}
+        ? File::Basename::dirname($self->{_iss_saved_path})
+        : ($self->{_installer_dir} || '');
+    my $default_name = $self->{_iss_saved_path}
+        ? File::Basename::basename($self->{_iss_saved_path})
+        : 'installer.iss';
+
     my $dlg = Wx::FileDialog->new(
         $self,
         "Save Inno Setup Script",
-        "",
-        "installer.iss",
+        $default_dir,
+        $default_name,
         "Inno Setup Script (*.iss)|*.iss|All files (*.*)|*.*",
         Wx::wxFD_SAVE() | Wx::wxFD_OVERWRITE_PROMPT()
     );
@@ -1553,11 +1721,10 @@ sub save_iss_file {
     if ($dlg->ShowModal == Wx::wxID_OK()) {
         my $path = $dlg->GetPath;
 
-        if (open(my $fh, ">", $path)) {
-            binmode($fh);
-            print {$fh} $text;
-            close($fh);
+        if ($self->_write_text_file($path, $text)) {
+            $self->{_iss_saved_path} = $path;
             Wx::MessageBox("Saved:\n$path", "Save .iss", wxOK|wxICON_INFORMATION, $self);
+            $self->_append_io("[iss] Saved: $path\n");
         } else {
             Wx::MessageBox("Failed to save:\n$path\n\n$!", "Save .iss", wxOK|wxICON_ERROR, $self);
         }
@@ -1568,8 +1735,6 @@ sub save_iss_file {
 
 sub compile_iss_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::compile_iss_file <event_handler>
-    # end wxGlade
 
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
@@ -1583,23 +1748,260 @@ sub compile_iss_file {
         return;
     }
 
-    my $q = $self->{_q};
-    threads->create(sub {
-        my ($qref) = @_;
-        $qref->enqueue("\n=== Inno Setup compile ===\n");
-        $qref->enqueue("[worker] compile hook not implemented yet (wire to iscc.exe when ready)\n");
-        $qref->enqueue({ type => 'DONE', exit_code => 0 });
-        return;
-    }, $q)->detach();
-}
+    $self->generate_iss_preview(undef);
 
+    my $text = $self->_iss_preview_text();
+    if (!$text) {
+        Wx::MessageBox(
+            "Nothing to compile. The .iss preview is empty.",
+            "Compile .iss",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    my $iscc = _expand_env_vars_windows($self->{text_iss_exe}->GetValue);
+    if (!$iscc) {
+        Wx::MessageBox(
+            "Please set the path to ISCC.exe first.",
+            "Compile .iss",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    if (!-f $iscc) {
+        Wx::MessageBox(
+            "ISCC.exe was not found:\n$iscc",
+            "Compile .iss",
+            wxOK | wxICON_ERROR,
+            $self
+        );
+        return;
+    }
+
+    my $iss_path = $self->_ensure_iss_path_for_save();
+    if (!$iss_path) {
+        $self->_append_io("[iss] Compile cancelled (no .iss save path selected).\n");
+        return;
+    }
+
+    if (!$self->_save_iss_to_path($iss_path)) {
+        Wx::MessageBox(
+            "Failed to save the .iss file before compiling.\n\n$!",
+            "Compile .iss",
+            wxOK | wxICON_ERROR,
+            $self
+        );
+        return;
+    }
+
+    my $installer_path = $self->_compute_expected_installer_path($iss_path);
+
+    $self->{_iss_has_compiled}        = 0;
+    $self->{_iss_last_compile_exit}   = undef;
+    $self->{_iss_last_installer_path} = '';
+
+    $self->_append_io("\n=== Inno Setup compile ===\n");
+    $self->_append_io("[iss] ISCC.exe=$iscc\n");
+    $self->_append_io("[iss] Script=$iss_path\n");
+    $self->_append_io("[iss] Expected installer=" . ($installer_path || '(unknown)') . "\n\n");
+
+    my $q = $self->{_q};
+
+    threads->create(sub {
+        my ($iscc_path, $script_path, $expected_installer, $qref) = @_;
+
+        my $cmd = qq{"$iscc_path" "$script_path" 2>&1};
+        my $exit = 0;
+
+        $qref->enqueue({
+            type => 'ISS_COMPILE_BEGIN',
+            text => "[iss] compiling with:\n$cmd\n\n",
+        });
+
+        if (open(my $fh, "$cmd |")) {
+            while (my $line = <$fh>) {
+                $qref->enqueue({
+                    type => 'ISS_COMPILE_LINE',
+                    text => $line,
+                });
+            }
+            close($fh);
+            $exit = $? >> 8;
+        } else {
+            $qref->enqueue({
+                type => 'ISS_COMPILE_LINE',
+                text => "[worker][error] failed to run ISCC.exe: $!\n",
+            });
+            $exit = 127;
+        }
+
+        $qref->enqueue({
+            type           => 'ISS_COMPILE_DONE',
+            exit_code      => $exit,
+            installer_path => $expected_installer,
+        });
+        return;
+    }, $iscc, $iss_path, $installer_path, $q)->detach();
+}
 
 sub load_iss_file {
     my ($self, $event) = @_;
-    # wxGlade: MyFrame::load_iss_file <event_handler>
-    warn "Event handler (load_iss_file) not implemented";
-    $event->Skip;
-    # end wxGlade
+
+    my $default_dir  = $self->{_iss_saved_path}
+        ? File::Basename::dirname($self->{_iss_saved_path})
+        : ($self->{_installer_dir} || $self->{_proj_root} || '');
+    my $default_name = $self->{_iss_saved_path}
+        ? File::Basename::basename($self->{_iss_saved_path})
+        : 'installer.iss';
+
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Load Inno Setup Script",
+        $default_dir,
+        $default_name,
+        "Inno Setup Script (*.iss)|*.iss|All files (*.*)|*.*",
+        Wx::wxFD_OPEN() | Wx::wxFD_FILE_MUST_EXIST()
+    );
+
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        my $path = $dlg->GetPath;
+        my $text = $self->_read_text_file($path);
+
+        if ($text ne '') {
+            $self->_set_preview_text($text);
+            $self->_load_iss_into_form($text, $path);
+            $self->{_iss_has_compiled}       = 0;
+            $self->{_iss_last_compile_exit}  = undef;
+            $self->{_iss_last_installer_path}= '';
+            $self->_append_io("[iss] Loaded: $path\n");
+
+            Wx::MessageBox(
+                "Loaded:\n$path",
+                "Load .iss",
+                wxOK | wxICON_INFORMATION,
+                $self
+            );
+        } else {
+            Wx::MessageBox(
+                "Failed to load:\n$path\n\n$!",
+                "Load .iss",
+                wxOK | wxICON_ERROR,
+                $self
+            );
+        }
+    }
+
+    $dlg->Destroy;
+}
+
+sub run_app_installer {
+    my ($self, $event) = @_;
+
+    my $installer = _trim($self->{_iss_last_installer_path});
+
+    if (!$installer) {
+        my $iss_path = _trim($self->{_iss_saved_path});
+        if ($iss_path) {
+            $installer = $self->_compute_expected_installer_path($iss_path);
+        }
+    }
+
+    if (!$installer) {
+        Wx::MessageBox(
+            "No installer path is known yet.\nCompile the .iss first, or load/save the .iss so the output path can be determined.",
+            "Run Installer",
+            wxOK | wxICON_INFORMATION,
+            $self
+        );
+        return;
+    }
+
+    $installer = _expand_env_vars_windows($installer);
+
+    if (!-f $installer) {
+        Wx::MessageBox(
+            "Installer was not found:\n$installer",
+            "Run Installer",
+            wxOK | wxICON_ERROR,
+            $self
+        );
+        return;
+    }
+
+    my $run_dir = File::Basename::dirname($installer);
+
+    $self->_append_io("\n=== Running Installer ===\n");
+    $self->_append_io("[iss] Installer=$installer\n\n");
+
+    my $q = $self->{_q};
+
+    threads->create(sub {
+        my ($path, $dir, $qref) = @_;
+
+        my $orig = eval { Cwd::getcwd() } || '';
+        my $exit = 0;
+
+        if (!chdir $dir) {
+            $qref->enqueue("[worker][error] failed to chdir to '$dir': $!\n");
+            $qref->enqueue("[installer done] exit_code=1\n");
+            return;
+        }
+
+        $qref->enqueue("[worker] current directory: $dir\n");
+        $qref->enqueue("[worker] starting installer: $path\n");
+
+        my $cmd = qq{"$path" 2>&1};
+
+        if (open(my $fh, "$cmd |")) {
+            while (my $line = <$fh>) {
+                $qref->enqueue($line);
+            }
+            close($fh);
+            $exit = $? >> 8;
+        } else {
+            $qref->enqueue("[worker][error] failed to run installer '$path': $!\n");
+            $exit = 127;
+        }
+
+        chdir $orig if $orig;
+
+        $qref->enqueue("[installer done] exit_code=$exit\n");
+        return;
+    }, $installer, $run_dir, $q)->detach();
+}
+
+sub select_iss_exe {
+    my ($self, $event) = @_;
+
+    my $current = _expand_env_vars_windows($self->{text_iss_exe}->GetValue);
+    my $default_dir  = '';
+    my $default_name = 'ISCC.exe';
+
+    if ($current) {
+        $default_dir  = File::Basename::dirname($current);
+        $default_name = File::Basename::basename($current);
+    }
+
+    my $dlg = Wx::FileDialog->new(
+        $self,
+        "Select ISCC.exe",
+        $default_dir,
+        $default_name,
+        "ISCC.exe (ISCC.exe)|ISCC.exe|Executable (*.exe)|*.exe|All files (*.*)|*.*",
+        Wx::wxFD_OPEN() | Wx::wxFD_FILE_MUST_EXIST()
+    );
+
+    if ($dlg->ShowModal == Wx::wxID_OK()) {
+        my $path = $dlg->GetPath;
+        $self->{text_iss_exe}->SetValue($path);
+        $self->_append_io("[iss] ISCC.exe selected: $path\n");
+    }
+
+    $dlg->Destroy;
 }
 
 # end of class MyFrame
