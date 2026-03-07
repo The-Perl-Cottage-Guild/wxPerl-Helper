@@ -53,7 +53,7 @@ sub new {
     $wxglade_tmp_menu = Wx::Menu->new();
     $self->{Open} = $wxglade_tmp_menu->Append(wxID_ANY, "Open (.pl) ...", "");
     $self->{menu_open_project} = $wxglade_tmp_menu->Append(wxID_ANY, "Open Project ...", "");
-    $self->{menu_save_project} = $wxglade_tmp_menu->Append(wxID_ANY, "Save Project ...", "");
+    $self->{menu_save_project} = $wxglade_tmp_menu->Append(wxID_ANY, "Save Project", "");
     $self->{menu_save_project_as} = $wxglade_tmp_menu->Append(wxID_ANY, "Save Project As ...", "");
     $self->{Exit} = $wxglade_tmp_menu->Append(wxID_ANY, "Exit", "");
     $self->{frame_menubar}->Append($wxglade_tmp_menu, "File");
