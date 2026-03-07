@@ -52,6 +52,9 @@ sub new {
     my $wxglade_tmp_menu;
     $wxglade_tmp_menu = Wx::Menu->new();
     $self->{Open} = $wxglade_tmp_menu->Append(wxID_ANY, "Open (.pl) ...", "");
+    $self->{menu_open_project} = $wxglade_tmp_menu->Append(wxID_ANY, "Open Project ...", "");
+    $self->{menu_save_project} = $wxglade_tmp_menu->Append(wxID_ANY, "Save Project ...", "");
+    $self->{menu_save_project_as} = $wxglade_tmp_menu->Append(wxID_ANY, "Save Project As ...", "");
     $self->{Exit} = $wxglade_tmp_menu->Append(wxID_ANY, "Exit", "");
     $self->{frame_menubar}->Append($wxglade_tmp_menu, "File");
     $wxglade_tmp_menu = Wx::Menu->new();
@@ -291,6 +294,9 @@ sub new {
     
     $self->Layout();
     Wx::Event::EVT_MENU($self, $self->{Open}->GetId, $self->can('select_perl_script'));
+    Wx::Event::EVT_MENU($self, $self->{menu_open_project}->GetId, $self->can('load_project_file'));
+    Wx::Event::EVT_MENU($self, $self->{menu_save_project}->GetId, $self->can('save_project_file'));
+    Wx::Event::EVT_MENU($self, $self->{menu_save_project_as}->GetId, $self->can('save_project_file_as'));
     Wx::Event::EVT_MENU($self, $self->{Exit}->GetId, $self->can('DoQuit'));
     Wx::Event::EVT_MENU($self, $self->{Aboutt}->GetId, $self->can('show_license_dialog'));
     Wx::Event::EVT_BUTTON($self, $self->{button_browse_pl}->GetId, $self->can('select_perl_script'));
@@ -834,18 +840,26 @@ sub _load_iss_into_form {
 }
 
 sub DoQuit {
+    # wxGlade: MyFrame::DoQuit <event_handler>
+    # end wxGlade
+
     my ($self, $event) = @_;
     $self->Close;
 }
 
 sub show_license_dialog {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::show_license_dialog <event_handler>
     warn "Event handler (show_license_dialog) not implemented";
     $event->Skip;
+    # end wxGlade
 }
 
 sub select_perl_script {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_perl_script <event_handler>
+    # end wxGlade
+
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -979,6 +993,8 @@ sub _resolve_exe_from_makefile {
 
 sub run_exe_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_exe_file <event_handler>
+    # end wxGlade
 
     if (!$self->{_makefile_has_run}) {
         Wx::MessageBox(
@@ -1057,6 +1073,8 @@ sub run_exe_file {
 
 sub load_makefile_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::load_makefile_file <event_handler>
+    # end wxGlade
 
     my $default_dir  = $self->{_proj_root} || '';
     my $default_name = 'Makefile';
@@ -1116,6 +1134,8 @@ sub load_makefile_file {
 
 sub save_makefile_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::save_makefile_file <event_handler>
+    # end wxGlade
 
     my $makefile = $self->_current_makefile_text();
     if (!$makefile) {
@@ -1165,6 +1185,9 @@ sub save_makefile_file {
 
 sub run_makefile_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_makefile_file <event_handler>
+    # end wxGlade
+
 
     my $makefile_path = _trim($self->{_makefile_saved_path});
     if (!$makefile_path) {
@@ -1252,6 +1275,8 @@ sub run_makefile_file {
 
 sub run_pp_autolink {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_pp_autolink <event_handler>
+    # end wxGlade
 
     my $script = $self->{perl_script_path}->GetValue // '';
     $script =~ s/^\s+|\s+$//g;
@@ -1398,12 +1423,16 @@ EOF
 
 sub generate_iss_appid_guid {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::generate_iss_appid_guid <event_handler>
+    # end wxGlade
     my $guid = _new_guid_upper();
     $self->{iss_appid}->SetValue('{{' . $guid . '}}');
 }
 
 sub select_iss_dist_exe {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_dist_exe <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -1426,6 +1455,8 @@ sub select_iss_dist_exe {
 
 sub select_iss_output_dir {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_output_dir <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::DirDialog->new(
         $self,
@@ -1447,6 +1478,8 @@ sub select_iss_output_dir {
 
 sub select_iss_icon_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_icon_file <event_handler>
+    # end wxGlade
 
     my $dlg = Wx::FileDialog->new(
         $self,
@@ -1511,6 +1544,8 @@ sub _collect_iss_values {
 
 sub generate_iss_preview {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::generate_iss_preview <event_handler>
+    # end wxGlade
 
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
@@ -1682,6 +1717,8 @@ ISS3
 
 sub save_iss_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::save_iss_file <event_handler>
+    # end wxGlade
 
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
@@ -1735,6 +1772,8 @@ sub save_iss_file {
 
 sub compile_iss_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::compile_iss_file <event_handler>
+    # end wxGlade
 
     my $cur = $self->{notebook_1}->GetSelection;
     if (!defined($cur) || $cur != 1) {
@@ -1850,6 +1889,8 @@ sub compile_iss_file {
 
 sub load_iss_file {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::load_iss_file <event_handler>
+    # end wxGlade
 
     my $default_dir  = $self->{_iss_saved_path}
         ? File::Basename::dirname($self->{_iss_saved_path})
@@ -1900,6 +1941,8 @@ sub load_iss_file {
 
 sub run_app_installer {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::run_app_installer <event_handler>
+    # end wxGlade
 
     my $installer = _trim($self->{_iss_last_installer_path});
 
@@ -1976,6 +2019,8 @@ sub run_app_installer {
 
 sub select_iss_exe {
     my ($self, $event) = @_;
+    # wxGlade: MyFrame::select_iss_exe <event_handler>
+    # end wxGlade
 
     my $current = _expand_env_vars_windows($self->{text_iss_exe}->GetValue);
     my $default_dir  = '';
@@ -2002,6 +2047,32 @@ sub select_iss_exe {
     }
 
     $dlg->Destroy;
+}
+
+sub load_project_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::load_project_file <event_handler>
+    warn "Event handler (load_project_file) not implemented";
+    $event->Skip;
+    # end wxGlade
+}
+
+
+sub save_project_file {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::save_project_file <event_handler>
+    warn "Event handler (save_project_file) not implemented";
+    $event->Skip;
+    # end wxGlade
+}
+
+
+sub save_project_file_as {
+    my ($self, $event) = @_;
+    # wxGlade: MyFrame::save_project_file_as <event_handler>
+    warn "Event handler (save_project_file_as) not implemented";
+    $event->Skip;
+    # end wxGlade
 }
 
 # end of class MyFrame
