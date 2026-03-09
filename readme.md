@@ -4,6 +4,8 @@ This tool is to assist with the creation of distributable Perl applications for 
 
 **Status** - functional, but will be adding as needed (through using it myself for GUI projects):
 
+**Features**
+
 - save Makefile
 - (not doing, not needed) add Makefile to clipboard
 - run Makefile
@@ -33,6 +35,7 @@ Click [here](https://wiki.perl-guilds.net/index.php?title=Developing_and_Distrib
 <img width="954" height="612" alt="image" src="https://github.com/user-attachments/assets/2d340de4-c4e2-468b-bbee-4bd03961f5a9" />
 
 <img width="956" height="608" alt="image" src="https://github.com/user-attachments/assets/191e5667-e21f-493f-8384-405aae977299" />
+
 
 
 
