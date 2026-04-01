@@ -1,6 +1,6 @@
 # Martha
 
-### Part of the Perl Lazarus Project
+### A Sister of the Perl Lazarus Project
 
 ---
 
