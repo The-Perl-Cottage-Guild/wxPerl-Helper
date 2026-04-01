@@ -10,7 +10,7 @@ There is no direct equivalent to Free Pascal's Lazarus IDE in the Perl ecosystem
 
 In practice, building GUI applications for Windows in Perl requires assembling a working stack:
 
-* Strawberry Perl
+* Strawberry Perl (`perl`, DLLs, `gcc`, `gmake`, etc)
 * wxPerl
 * wxGlade
 * Packaging tools like `pp` / `wxpar`
