@@ -6,7 +6,7 @@ A Sister of _the Perl Lazarus Project_
 
 ## The Perl Lazarus Project
 
-There is no direct equivalent to Lazarus IDE in the Perl ecosystem.
+There is no direct equivalent to Free Pascal's Lazarus IDE in the Perl ecosystem.
 
 In practice, building GUI applications for Windows in Perl requires assembling a working stack:
 
