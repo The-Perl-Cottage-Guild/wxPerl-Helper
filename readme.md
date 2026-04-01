@@ -1,3 +1,9 @@
+**Working Name**
+
+_Martha_
+
+Yes, a reference to the Turbo Pascal IDE, Lazarus. Though it'd be nice to have a Lazarus in Perl, the closest is thing we have to it is a collection of tools and installed development environment. _Martha_ fills in the gaps for packaging wxPerl applications for distributions on Windows.
+
 **Summary**
 
 This tool is to assist with the creation of distributable Perl applications for the Windows environment.
